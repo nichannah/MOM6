@@ -417,20 +417,30 @@ subroutine zonal_mass_flux(u, h_in, uh, dt, G, CS, LB, uhbt, OBC, &
 !$OMP                                  visc_rem_max, I_vrm, du_lim, dx_E, dx_W, any_simple_OBC ) &   
 !$OMP      firstprivate(visc_rem)
   do j=jsh,jeh
-    do I=ish-1,ieh ; do_i(I) = .true. ; visc_rem_max(I) = 0.0 ; enddo
+    do i=ish-1,ieh 
+      do_i(I) = .true.
+      visc_rem_max(I) = 0.0
+    enddo
+
     ! Set uh and duhdu.
     do k=1,nz
-      if (use_visc_rem) then ; do I=ish-1,ieh
-        visc_rem(I,k) = visc_rem_u(I,j,k)
-        visc_rem_max(I) = max(visc_rem_max(I), visc_rem(I,k))
-      enddo ; endif
+      if (use_visc_rem) then
+        do i=ish-1,ieh
+          visc_rem(i,k) = visc_rem_u(i,j,k)
+          visc_rem_max(i) = max(visc_rem_max(i), visc_rem(i,k))
+        enddo
+      endif
       call zonal_flux_layer(u(:,j,k), h_in(:,j,k), hL(:,j,k), hR(:,j,k), &
                             uh(:,j,k), duhdu(:,k), visc_rem(:,k), &
                             dt, G, j, ish, ieh, do_i, CS%vol_CFL)
-      if (apply_OBC_u) then ; do I=ish-1,ieh
-        if (OBC%OBC_mask_u(I,j) .and. (OBC%OBC_kind_u(I,j) == OBC_SIMPLE)) &
-          uh(I,j,k) = OBC%uh(I,j,k)
-      enddo ; endif
+      if (apply_OBC_u) then
+        do I=ish-1,ieh
+          if (OBC%OBC_mask_u(I,j) .and. &
+              (OBC%OBC_kind_u(I,j) == OBC_SIMPLE)) then
+            uh(I,j,k) = OBC%uh(I,j,k)
+          endif
+        enddo
+      endif
     enddo
 
     if ((.not.use_visc_rem).or.(.not.CS%use_visc_rem_max)) then ; do I=ish-1,ieh
@@ -605,7 +615,8 @@ subroutine zonal_flux_layer(u, h, hL, hR, uh, duhdu, visc_rem, dt, G, j, &
   integer,                     intent(in)    :: j, ish, ieh
   logical, dimension(NIMEMB_), intent(in)    :: do_i
   logical,                     intent(in)    :: vol_CFL
-!   This subroutines evaluates the zonal mass or volume fluxes in a layer.
+
+! This subroutines evaluates the zonal mass or volume fluxes in a layer.
 !
 ! Arguments: u - Zonal velocity, in m s-1.
 !  (in)      h - Layer thickness used to calculate the fluxes, in H.
@@ -624,34 +635,50 @@ subroutine zonal_flux_layer(u, h, hL, hR, uh, duhdu, visc_rem, dt, G, j, &
 !  (in)      do_i - A logical flag indiciating which I values to work on.
 !  (in)      vol_CFL - If true, rescale the ratio of face areas to the cell
 !                      areas when estimating the CFL number.
+
   real :: CFL  ! The CFL number based on the local velocity and grid spacing, ND.
   real :: curv_3 ! A measure of the thickness curvature over a grid length,
                  ! with the same units as h_in.
   real :: h_marg ! The marginal thickness of a flux, in H.
   integer :: i
 
-  do I=ish-1,ieh ; if (do_i(I)) then
-    ! Set new values of uh and duhdu.
-    if (u(I) > 0.0) then
-      if (vol_CFL) then ; CFL = (u(I) * dt) * (G%dy_Cu(I,j) * G%IareaT(i,j))
-      else ; CFL = u(I) * dt * G%IdxT(i,j) ; endif
-      curv_3 = hL(i) + hR(i) - 2.0*h(i)
-      uh(I) = G%dy_Cu(I,j) * u(I) * &
-          (hR(i) + CFL * (0.5*(hL(i) - hR(i)) + curv_3*(CFL - 1.5)))
-      h_marg = hR(i) + CFL * ((hL(i) - hR(i)) + 3.0*curv_3*(CFL - 1.0))
-    elseif (u(I) < 0.0) then
-      if (vol_CFL) then ; CFL = (-u(I) * dt) * (G%dy_Cu(I,j) * G%IareaT(i+1,j))
-      else ; CFL = -u(I) * dt * G%IdxT(i+1,j) ; endif
-      curv_3 = hL(i+1) + hR(i+1) - 2.0*h(i+1)
-      uh(I) = G%dy_Cu(I,j) * u(I) * &
-          (hL(i+1) + CFL * (0.5*(hR(i+1)-hL(i+1)) + curv_3*(CFL - 1.5)))
-      h_marg = hL(i+1) + CFL * ((hR(i+1)-hL(i+1)) + 3.0*curv_3*(CFL - 1.0))
-    else
-      uh(I) = 0.0
-      h_marg = 0.5 * (hl(i+1) + hr(i))
+  do i=ish-1,ieh
+    if (do_i(i)) then
+
+      ! Set new values of uh and duhdu.
+      if (u(i) > 0.0) then
+        if (vol_CFL) then
+          CFL = (u(i) * dt) * (G%dy_Cu(i,j) * G%IareaT(i,j))
+        else
+          CFL = u(i) * dt * G%IdxT(i,j)
+        endif
+
+        curv_3 = hL(i) + hR(i) - 2.0*h(i)
+        uh(i) = G%dy_Cu(i,j) * u(i) * &
+            (hR(i) + CFL * (0.5*(hL(i) - hR(i)) + curv_3*(CFL - 1.5)))
+        h_marg = hR(i) + CFL * ((hL(i) - hR(i)) + 3.0*curv_3*(CFL - 1.0))
+
+      elseif (u(i) < 0.0) then
+        if (vol_CFL) then
+          CFL = (-u(i) * dt) * (G%dy_Cu(i,j) * G%IareaT(i+1,j))
+        else
+          CFL = -u(i) * dt * G%IdxT(i+1,j)
+        endif
+
+        curv_3 = hL(i+1) + hR(i+1) - 2.0*h(i+1)
+        uh(i) = G%dy_Cu(i,j) * u(i) * &
+            (hL(i+1) + CFL * (0.5*(hR(i+1) - hL(i+1)) + curv_3*(CFL - 1.5)))
+        h_marg = hL(i+1) + CFL * ((hR(i+1) - hL(i+1)) + 3.0*curv_3*(CFL - 1.0))
+
+      else
+        uh(i) = 0.0
+        h_marg = 0.5 * (hl(i+1) + hr(i))
+      endif
+
+      duhdu(i) = G%dy_Cu(i,j) * h_marg * visc_rem(i)
+
     endif
-    duhdu(I) = G%dy_Cu(I,j) * h_marg * visc_rem(I)
-  endif ; enddo
+  enddo
 
 end subroutine zonal_flux_layer
 
@@ -864,7 +891,9 @@ subroutine zonal_flux_adjust(u, h_in, hL, hR, uhbt, uh_tot_0, duhdu_tot_0, &
     if (.not.domore) exit
 
     if ((itt < max_itts) .or. present(uh_3d)) then ; do k=1,nz
-      do I=ish-1,ieh ; u_new(I) = u(I,j,k) + du(I) * visc_rem(I,k) ; enddo
+      do i=ish-1,ieh
+        u_new(I) = u(I,j,k) + du(I) * visc_rem(I,k)
+      enddo
       call zonal_flux_layer(u_new, h_in(:,j,k), hL(:,j,k), hR(:,j,k), &
                             uh_aux(:,k), duhdu(:,k), visc_rem(:,k), &
                             dt, G, j, ish, ieh, do_i, CS%vol_CFL)
