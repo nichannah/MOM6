@@ -51,6 +51,10 @@ use MOM_grid, only : ocean_grid_type
 use MOM_variables, only : ocean_OBC_type, BT_cont_type, OBC_SIMPLE
 use MOM_variables, only : OBC_FLATHER_E, OBC_FLATHER_W, OBC_FLATHER_N, OBC_FLATHER_S
 
+#ifdef __CHECK_UNITS__
+use numericalunits
+#endif
+
 implicit none ; private
 
 #include <MOM_memory.h>
@@ -379,6 +383,11 @@ subroutine zonal_mass_flux(u, h_in, uh, dt, G, CS, LB, uhbt, OBC, &
   real :: dx_E, dx_W ! Effective x-grid spacings to the east and west, in m.
   integer :: i, j, k, ish, ieh, jsh, jeh, nz
   logical :: do_aux, apply_OBC_u, use_visc_rem, set_BT_cont, any_simple_OBC
+#ifdef __CHECK_UNITS__
+  real, dimension(SZIB_(G),SZK_(G)) :: duhdu_units
+  real, dimension(SZIB_(G),SZJ_(G),SZK_(G)) :: uh_units
+  type(ocean_grid_type) :: G_units
+#endif
 
   do_aux = (present(uhbt_aux) .and. present(u_cor_aux))
   use_visc_rem = present(visc_rem_u)
@@ -417,9 +426,9 @@ subroutine zonal_mass_flux(u, h_in, uh, dt, G, CS, LB, uhbt, OBC, &
 !$OMP                                  visc_rem_max, I_vrm, du_lim, dx_E, dx_W, any_simple_OBC ) &   
 !$OMP      firstprivate(visc_rem)
   do j=jsh,jeh
-    do i=ish-1,ieh 
-      do_i(I) = .true.
-      visc_rem_max(I) = 0.0
+    do i=ish-1,ieh
+      do_i(i) = .true.
+      visc_rem_max(i) = 0.0
     enddo
 
     ! Set uh and duhdu.
@@ -433,6 +442,22 @@ subroutine zonal_mass_flux(u, h_in, uh, dt, G, CS, LB, uhbt, OBC, &
       call zonal_flux_layer(u(:,j,k), h_in(:,j,k), hL(:,j,k), hR(:,j,k), &
                             uh(:,j,k), duhdu(:,k), visc_rem(:,k), &
                             dt, G, j, ish, ieh, do_i, CS%vol_CFL)
+#ifdef __CHECK_UNITS__
+      call nu_reset_units()
+      call nu_set_grid_units(G, G_units)
+      call zonal_flux_layer(u(:,j,k) * nu_v, h_in(:,j,k) * nu_H, &
+                            hL(:,j,k) * nu_H, hR(:,j,k) * nu_H, &
+                            uh_units(:,j,k), duhdu_units(:,k), visc_rem(:,k), &
+                            dt * nu_s, G_units, j, ish, ieh, do_i, CS%vol_CFL)
+      ! Units of uh should be H m2 s-1. Check this.
+      call assert_allclose(uh(ish-1:ieh,j,k), &
+                           uh_units(ish-1:ieh, j, k) / (nu_H * nu_m2 / nu_s), &
+                           'Units for variable uh are incorrect.')
+      ! Units of duhduh should be H m, check
+      call assert_allclose(duhdu(ish-1:ieh,k), &
+                           duhdu_units(ish-1:ieh,k) / (nu_H * nu_m), &
+                           'Units for variable duhdu are incorrect.')
+#endif
       if (apply_OBC_u) then
         do I=ish-1,ieh
           if (OBC%OBC_mask_u(I,j) .and. &
