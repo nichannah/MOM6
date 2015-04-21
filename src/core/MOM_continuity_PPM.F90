@@ -174,6 +174,14 @@ subroutine continuity_PPM(u, v, hin, h, uh, vh, dt, G, CS, uhbt, vhbt, OBC, &
   logical :: apply_OBC_u, apply_OBC_v, x_first
   logical :: apply_OBC_u_flather_east, apply_OBC_u_flather_west
   logical :: apply_OBC_v_flather_north, apply_OBC_v_flather_south
+
+#ifdef __CHECK_UNITS__
+  real, dimension(SZI_(G),SZJB_(G),SZK_(G)) :: vh_units
+  real, dimension(SZI_(G),SZJB_(G),SZK_(G)) :: v_cor_units
+  real, dimension(SZI_(G),SZJB_(G),SZK_(G)) :: v_cor_aux_units
+  type(ocean_grid_type) :: G_units
+#endif
+
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
 
   if (.not.associated(CS)) call MOM_error(FATAL, &
@@ -237,6 +245,27 @@ subroutine continuity_PPM(u, v, hin, h, uh, vh, dt, G, CS, uhbt, vhbt, OBC, &
   !  the fluxes.
     call meridional_mass_flux(v, h, vh, dt, G, CS, LB, vhbt, OBC, visc_rem_v, &
                               v_cor, vhbt_aux, v_cor_aux, BT_cont)
+
+#ifdef __CHECK_UNITS__
+    call nu_reset_units()
+    call nu_set_grid_units(G, G_units)
+    call meridional_mass_flux(v * nu_v, h * nu_H, vh_units, dt * nu_s, &
+                              G_units, CS, LB, vhbt, OBC, visc_rem_v, &
+                              v_cor * nu_v, vhbt_aux * (nu_H * nu_m2 / nu_s),
+                              v_cor_aux * nu_v, BT_cont)
+    ! Units of vh should be H m2 s-1. Check this.
+    call assert_allclose(vh(:,:,:), &
+                         vh_units(:,:,:) / (nu_H * nu_m2 / nu_s), &
+                         'Units for variable vh are incorrect.')
+    ! Units of v_cor should be m s-1.
+    call assert_allclose(v_cor(:,:,:), &
+                         v_cor_units(:,:,:) / nu_v, &
+                         'Units for variable v_cor are incorrect.')
+    ! Units of v_cor_aux should be m s-1.
+    call assert_allclose(v_cor_aux(:,:,:), &
+                         v_cor_aux_units(:,:,:) / nu_v, &
+                         'Units for variable v_cor_aux are incorrect.')
+#endif
 
     call cpu_clock_begin(id_clock_update)
 !$OMP parallel do default(none) shared(nz,LB,h,dt,G,vh) 
