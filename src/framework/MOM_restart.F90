@@ -77,6 +77,7 @@ implicit none ; private
 
 public restart_init, restart_end, restore_state, register_restart_field
 public save_restart, query_initialized, restart_init_end, vardesc
+public restart_checkpoint
 
 type p3d
   real, dimension(:,:,:), pointer :: p => NULL()
@@ -125,6 +126,7 @@ type, public :: MOM_restart_CS ; private
   type(p2d), pointer :: var_ptr2d(:) => NULL()
   type(p3d), pointer :: var_ptr3d(:) => NULL()
   integer :: max_fields
+  type(time) :: checkpoint_time
 end type MOM_restart_CS
 
 interface register_restart_field
@@ -590,6 +592,73 @@ function query_initialized_3d_name(f_ptr, name, CS) result(query_initialized)
   endif
 
 end function query_initialized_3d_name
+
+! Instead of writing registered variables to a file, copy them to memory.
+subroutine checkpoint_restart(time, restart_CS, CS)
+  type(time_type),      intent(in)    :: time
+  type(MOM_restart_CS), pointer :: restart_CS
+  type(MOM_restart_CS), pointer       :: CS
+
+  ! Copy over scalar parts of the restart
+  CS%restart = restart_CS%restart
+  CS%novars = restart_CS%novars
+  CS%nkmb = restart_CS%nkmb
+  CS%parallel_restartfiles = restart_CS%parallel_restartfiles
+  CS%large_file_support = restart_CS%large_file_support
+  CS%restartfile = restart_CS%restartfile
+  CS%max_fields = restart_CS%max_fields
+
+  ! Allocate memory for restart arrays.
+  if (.not. associated(CS%restart_fields)) then
+    allocate(CS%restart_fields(CS%max_fields))
+    allocate(CS%var_ptr0d(CS%max_fields))
+    allocate(CS%var_ptr1d(CS%max_fields))
+    allocate(CS%var_ptr2d(CS%max_fields))
+    allocate(CS%var_ptr3d(CS%max_fields))
+
+    do i=1,CS%max_fields
+      if (associated(restart_CS%var_ptr0d(i)%p) then
+        allocate(CS%var_ptr0d(i)%p)
+      endif
+      if (associated(restart_CS%var_ptr1d(i)%p) then
+        allocate(CS%var_ptr1d(i)%p(size(restart_CS%var_ptr1d%p))
+      endif
+      if (associated(restart_CS%var_ptr2d(i)%p) then
+        allocate(CS%var_ptr2d(i)%p(size(restart_CS%var_ptr2d%p))
+      endif
+      if (associated(restart_CS%var_ptr3d(i)%p) then
+        allocate(CS%var_ptr3d(i)%p(size(restart_CS%var_ptr3d%p))
+      endif
+    end do
+  endif
+
+  ! Copy data into allocated memory.
+  CS%restart_fields(:) = restart_CS%restart_fields(:)
+
+  do i=1,size(restart_CS%var_ptr0d)
+    if (associated(CS%var_ptr0d(i)%p) then
+      CS%var_ptr0d(i)%p(:) = restart_CS%var_ptr0d(i)%p(:)
+    endif
+  enddo
+  do i=1,size(restart_CS%var_ptr1d)
+    if (associated(CS%var_ptr1d(i)%p) then
+      CS%var_ptr1d(i)%p(:) = restart_CS%var_ptr1d(i)%p(:)
+    endif
+  enddo
+  do i=1,size(restart_CS%var_ptr2d)
+    if (associated(CS%var_ptr2d(i)%p) then
+      CS%var_ptr2d(i)%p(:) = restart_CS%var_ptr2d(i)%p(:)
+    endif
+  enddo
+  do i=1,size(restart_CS%var_ptr3d)
+    if (associated(CS%var_ptr3d(i)%p) then
+      CS%var_ptr3d(i)%p(:) = restart_CS%var_ptr3d(i)%p(:)
+    endif
+  enddo
+
+  restart_CS%checkpoint_time = time
+
+end subroutine checkpoint_restart
 
 subroutine save_restart(directory, time, G, CS, time_stamped, filename)
 !  save_restart saves all registered variables to restart files.
