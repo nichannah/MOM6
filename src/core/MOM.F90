@@ -430,7 +430,9 @@ type, public :: MOM_control_struct
   real ALLOCABLE_, dimension(NIMEM_,NJMEM_,NKMEM_) :: &
     h, &      ! layer thickness (m or kg/m2 (H))
     T, &      ! potential temperature (degrees C)
-    S         ! salinity (ppt)
+    S, &      ! salinity (ppt)
+    h2, h_accum, u_on_T, v_on_T, uv_on_T, uh_on_T, vh_on_T, u2_on_T, v2_on_T
+
   real ALLOCABLE_, dimension(NIMEMB_PTR_,NJMEM_,NKMEM_) :: &
     u,  &     ! zonal velocity component (m/s)
     uh, &     ! uh = u * h * dy at u grid points (m3/s or kg/s)
@@ -735,8 +737,8 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     v, &  ! v : meridional velocity component (m/s)
     h     ! h : layer thickness (meter (Bouss) or kg/m2 (non-Bouss))
 
-  real, dimension(SZI_(CS%G),SZJ_(CS%G),SZK_(CS%G)) :: u_on_T, v_on_T, uv_on_T, uh_on_T, vh_on_T, u2_on_T, v2_on_T
   real, dimension(SZI_(CS%G),SZJ_(CS%G),SZK_(CS%G)+1) :: eta_predia
+  real, dimension(SZI_(CS%G),SZJ_(CS%G),SZK_(CS%G)) :: u_on_T, v_on_T
 
   real :: tot_wt_ssh, Itot_wt_ssh, I_time_int
   real :: zos_area_mean, volo
@@ -1392,35 +1394,42 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     if (CS%id_v > 0) call post_data(CS%id_v, v, CS%diag)
     if (CS%id_h > 0) call post_data(CS%id_h, h, CS%diag)
 
-    print*, 'is, ie, isq, ieq, js, je, jsq, jeq:', is, ie, isq, ieq, js, je, jsq, jeq
-    if (CS%id_h2 > 0) call post_data(CS%id_h2, h*h, CS%diag)
-
     if (CS%id_u_on_T > 0) then
 
       do j=js,je
         do i=is,ie
+          CS%h_accum(i, j, :) = CS%h_accum(i, j, :) + h(i, j, :)
+          CS%h2(i, j, :) = CS%h2(i, j, :) + (h(i, j, :) * h(i, j, :))
+
           u_on_T(i, j, :) = 0.5 * (u(i-1, j, :) + u(i, j, :))
           v_on_T(i, j, :) = 0.5 * (v(i, j-1, :) + v(i, j, :))
+
+          CS%u_on_T(i, j, :) = CS%u_on_T(i, j, :) + u_on_T(i, j, :)
+          CS%v_on_T(i, j, :) = CS%v_on_T(i, j, :) + v_on_T(i, j, :)
+
         enddo
       enddo
-      call post_data(CS%id_u_on_T, u_on_T, CS%diag)
-      call post_data(CS%id_v_on_T, v_on_T, CS%diag)
+
+      call post_data(CS%id_h, CS%h_accum, CS%diag)
+      call post_data(CS%id_h2, CS%h2, CS%diag)
+      call post_data(CS%id_u_on_T, CS%u_on_T, CS%diag)
+      call post_data(CS%id_v_on_T, CS%v_on_T, CS%diag)
 
       do j=js,je
         do i=is,ie
-          uv_on_T(i, j, :) = u_on_T(i, j, :) * v_on_T(i, j, :)
-          uh_on_T(i, j, :) = u_on_T(i, j, :) * h(i, j, :)
-          vh_on_T(i, j, :) = v_on_T(i, j, :) * h(i, j, :)
-          u2_on_T(i, j, :) = u_on_T(i, j, :) * u_on_T(i, j, :)
-          v2_on_T(i, j, :) = v_on_T(i, j, :) * v_on_T(i, j, :)
+          CS%uv_on_T(i, j, :) = CS%uv_on_T(i, j, :) + (u_on_T(i, j, :) * v_on_T(i, j, :))
+          CS%uh_on_T(i, j, :) = CS%uh_on_T(i, j, :) + (u_on_T(i, j, :) * h(i, j, :))
+          CS%vh_on_T(i, j, :) = CS%vh_on_T(i, j, :) + (v_on_T(i, j, :) * h(i, j, :))
+          CS%u2_on_T(i, j, :) = CS%u2_on_T(i, j, :) + (u_on_T(i, j, :) * u_on_T(i, j, :))
+          CS%v2_on_T(i, j, :) = CS%v2_on_T(i, j, :) + (v_on_T(i, j, :) * v_on_T(i, j, :))
         enddo
       enddo
 
-      call post_data(CS%id_uv_on_T, uv_on_T, CS%diag)
-      call post_data(CS%id_uh_on_T, uh_on_T, CS%diag)
-      call post_data(CS%id_vh_on_T, vh_on_T, CS%diag)
-      call post_data(CS%id_u2_on_T, u2_on_T, CS%diag)
-      call post_data(CS%id_v2_on_T, v2_on_T, CS%diag)
+      call post_data(CS%id_uv_on_T, CS%uv_on_T, CS%diag)
+      call post_data(CS%id_uh_on_T, CS%uh_on_T, CS%diag)
+      call post_data(CS%id_vh_on_T, CS%vh_on_T, CS%diag)
+      call post_data(CS%id_u2_on_T, CS%u2_on_T, CS%diag)
+      call post_data(CS%id_v2_on_T, CS%v2_on_T, CS%diag)
     endif
 
     ! compute ssh, which is either eta_av for Bouss, or 
@@ -1895,6 +1904,17 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in)
   ALLOC_(CS%h(isd:ied,jsd:jed,nz))     ; CS%h(:,:,:) = G%Angstrom
   ALLOC_(CS%uh(IsdB:IedB,jsd:jed,nz))  ; CS%uh(:,:,:) = 0.0
   ALLOC_(CS%vh(isd:ied,JsdB:JedB,nz))  ; CS%vh(:,:,:) = 0.0
+
+  ALLOC_(CS%h_accum(isd:ied,jsd:jed,nz))     ; CS%h_accum(:,:,:) = G%Angstrom * G%Angstrom
+  ALLOC_(CS%h2(isd:ied,jsd:jed,nz))     ; CS%h2(:,:,:) = G%Angstrom * G%Angstrom
+  ALLOC_(CS%u_on_T(isd:ied,jsd:jed,nz))  ; CS%u_on_T(:,:,:) = 0.0
+  ALLOC_(CS%v_on_T(isd:ied,jsd:jed,nz))  ; CS%v_on_T(:,:,:) = 0.0
+  ALLOC_(CS%uv_on_T(isd:ied,jsd:jed,nz))  ; CS%uv_on_T(:,:,:) = 0.0
+  ALLOC_(CS%uh_on_T(isd:ied,jsd:jed,nz))  ; CS%uh_on_T(:,:,:) = 0.0
+  ALLOC_(CS%vh_on_T(isd:ied,jsd:jed,nz))  ; CS%vh_on_T(:,:,:) = 0.0
+  ALLOC_(CS%u2_on_T(isd:ied,jsd:jed,nz))  ; CS%u2_on_T(:,:,:) = 0.0
+  ALLOC_(CS%v2_on_T(isd:ied,jsd:jed,nz))  ; CS%v2_on_T(:,:,:) = 0.0
+
   if (CS%use_temperature) then
     ALLOC_(CS%T(isd:ied,jsd:jed,nz))   ; CS%T(:,:,:) = 0.0
     ALLOC_(CS%S(isd:ied,jsd:jed,nz))   ; CS%S(:,:,:) = 0.0
