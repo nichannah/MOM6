@@ -548,6 +548,15 @@ type, public :: MOM_control_struct
   integer :: id_T  = -1
   integer :: id_S  = -1
 
+  integer :: id_h2  = -1
+  integer :: id_uv_on_T  = -1
+  integer :: id_u_on_T  = -1
+  integer :: id_v_on_T  = -1
+  integer :: id_u2_on_T  = -1
+  integer :: id_v2_on_T  = -1
+  integer :: id_uh_on_T  = -1
+  integer :: id_vh_on_T  = -1
+
   ! 2-d surface and bottom fields 
   integer :: id_zos      = -1
   integer :: id_zossq    = -1
@@ -726,6 +735,7 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     v, &  ! v : meridional velocity component (m/s)
     h     ! h : layer thickness (meter (Bouss) or kg/m2 (non-Bouss))
 
+  real, dimension(SZI_(CS%G),SZJ_(CS%G),SZK_(CS%G)) :: u_on_T, v_on_T, uv_on_T, uh_on_T, vh_on_T, u2_on_T, v2_on_T
   real, dimension(SZI_(CS%G),SZJ_(CS%G),SZK_(CS%G)+1) :: eta_predia
 
   real :: tot_wt_ssh, Itot_wt_ssh, I_time_int
@@ -1381,6 +1391,37 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     if (CS%id_u > 0) call post_data(CS%id_u, u, CS%diag)
     if (CS%id_v > 0) call post_data(CS%id_v, v, CS%diag)
     if (CS%id_h > 0) call post_data(CS%id_h, h, CS%diag)
+
+    print*, 'is, ie, isq, ieq, js, je, jsq, jeq:', is, ie, isq, ieq, js, je, jsq, jeq
+    if (CS%id_h2 > 0) call post_data(CS%id_h2, h*h, CS%diag)
+
+    if (CS%id_u_on_T > 0) then
+
+      do j=js,je
+        do i=is,ie
+          u_on_T(i, j, :) = 0.5 * (u(i-1, j, :) + u(i, j, :))
+          v_on_T(i, j, :) = 0.5 * (v(i, j-1, :) + v(i, j, :))
+        enddo
+      enddo
+      call post_data(CS%id_u_on_T, u_on_T, CS%diag)
+      call post_data(CS%id_v_on_T, v_on_T, CS%diag)
+
+      do j=js,je
+        do i=is,ie
+          uv_on_T(i, j, :) = u_on_T(i, j, :) * v_on_T(i, j, :)
+          uh_on_T(i, j, :) = u_on_T(i, j, :) * h(i, j, :)
+          vh_on_T(i, j, :) = v_on_T(i, j, :) * h(i, j, :)
+          u2_on_T(i, j, :) = u_on_T(i, j, :) * u_on_T(i, j, :)
+          v2_on_T(i, j, :) = v_on_T(i, j, :) * v_on_T(i, j, :)
+        enddo
+      enddo
+
+      call post_data(CS%id_uv_on_T, uv_on_T, CS%diag)
+      call post_data(CS%id_uh_on_T, uh_on_T, CS%diag)
+      call post_data(CS%id_vh_on_T, vh_on_T, CS%diag)
+      call post_data(CS%id_u2_on_T, u2_on_T, CS%diag)
+      call post_data(CS%id_v2_on_T, v2_on_T, CS%diag)
+    endif
 
     ! compute ssh, which is either eta_av for Bouss, or 
     ! diagnosed ssh for non-Bouss; call "find_eta" for this 
@@ -2239,6 +2280,23 @@ subroutine register_diags(Time, G, CS, ADp)
       cmor_standard_name='sea_water_y_velocity', cmor_long_name='Sea Water Y Velocity')
   CS%id_h = register_diag_field('ocean_model', 'h', diag%axesTL, Time, &
       'Layer Thickness', thickness_units)
+
+  CS%id_h2 = register_diag_field('ocean_model', 'h2', diag%axesTL, Time, &
+      'Layer Thickness ', 'h squared')
+  CS%id_u_on_T = register_diag_field('ocean_model', 'u_on_T', diag%axesTL, Time, &
+      'U interpolated to tracer points', 'meters second-1')
+  CS%id_v_on_T = register_diag_field('ocean_model', 'v_on_T', diag%axesTL, Time, &
+      'V interpolated to tracer points', 'meters second-1')
+  CS%id_u2_on_T = register_diag_field('ocean_model', 'u2_on_T', diag%axesTL, Time, &
+      'U interpolated to tracer points squared', 'meters squared second-2')
+  CS%id_v2_on_T = register_diag_field('ocean_model', 'v2_on_T', diag%axesTL, Time, &
+      'V interpolated to tracer points squared', 'meters squared second-2')
+  CS%id_uh_on_T = register_diag_field('ocean_model', 'uh_on_T', diag%axesTL, Time, &
+      'U interpolated to tracer points multiplied by H', 'meters squared second-1')
+  CS%id_vh_on_T = register_diag_field('ocean_model', 'vh_on_T', diag%axesTL, Time, &
+      'V interpolated to tracer points multiplied by H', 'meters squared second-1')
+  CS%id_uv_on_T = register_diag_field('ocean_model', 'uv_on_T', diag%axesTL, Time, &
+      'U and V interpolated to tracer points and multiplied', 'meters squared second-2')
 
   CS%id_volo = register_scalar_field('ocean_model', 'volo', Time, diag,&
       long_name='Total volume of liquid ocean', units='m3',            &
