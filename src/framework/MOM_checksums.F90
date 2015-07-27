@@ -22,9 +22,13 @@ module MOM_checksums
 
 use MOM_coms, only : PE_here, root_PE, num_PEs, sum_across_PEs
 use MOM_coms, only : min_across_PEs, max_across_PEs
+use mpp_parameter_mod, only : ANY_PE
 use MOM_error_handler, only : MOM_error, FATAL, is_root_pe
 use MOM_file_parser, only : log_version, param_file_type
 use MOM_grid, only : ocean_grid_type
+use mpp_mod,              only : mpp_send, mpp_recv, mpp_sync_self
+use mpp_parameter_mod,    only : ANY_PE
+use ensemble_manager_mod, only : get_ensemble_id, get_ensemble_size, get_ensemble_pelist
 
 implicit none ; private
 
@@ -96,6 +100,10 @@ subroutine chksum_h_2d(array, mesg, G, haloshift)
   integer, intent(in), optional :: haloshift
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+  integer :: bc_peer, i
+  integer :: ensemble_info(6), ensemble_size, npes
+  integer, dimension(:,:), allocatable :: ensemble_pelist
+  logical :: test_transpose_domain, test_compare_online
 
   if (checkForNaNs) then
     if (is_NaN(array(G%isc:G%iec,G%jsc:G%jec))) &
@@ -123,6 +131,32 @@ subroutine chksum_h_2d(array, mesg, G, haloshift)
   endif
 
   bc0=subchk(array, G, 0, 0)
+
+  ! Check that checksum is the same across ensemble members
+  test_compare_online = .true.
+  if (test_compare_online) then
+    ensemble_info = get_ensemble_size()
+    ensemble_size = ensemble_info(1)
+    npes = ensemble_info(2)
+    allocate(ensemble_pelist(ensemble_size, npes))
+    call get_ensemble_pelist(ensemble_pelist, 'ocean')
+
+    if (is_root_pe() .and. ensemble_size > 1) then
+      if (get_ensemble_id() == 1) then
+        do i=2, ensemble_size
+          ! Receive from the first PE in each ensemble member
+          call mpp_recv(bc_peer, glen=1, from_pe=ensemble_pelist(i, 1))
+          if (bc_peer /= bc0) then
+            call chksum_error(FATAL,"Error in chksum_h_2d, ensembles don't match "//trim(mesg))
+          endif
+        enddo
+      else
+        call mpp_send(bc0, plen=1, to_pe=ensemble_pelist(1, 1))
+      endif
+    endif
+
+    deallocate(ensemble_pelist)
+  endif
 
   if (hshift==0) then
       if (is_root_pe()) call chk_sum_msg("h-point:",bc0,mesg)
