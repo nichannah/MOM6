@@ -100,10 +100,6 @@ subroutine chksum_h_2d(array, mesg, G, haloshift)
   integer, intent(in), optional :: haloshift
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
-  integer :: bc_peer, i
-  integer :: ensemble_info(6), ensemble_size, npes
-  integer, dimension(:,:), allocatable :: ensemble_pelist
-  logical :: test_transpose_domain, test_compare_online
 
   if (checkForNaNs) then
     if (is_NaN(array(G%isc:G%iec,G%jsc:G%jec))) &
@@ -132,34 +128,10 @@ subroutine chksum_h_2d(array, mesg, G, haloshift)
 
   bc0=subchk(array, G, 0, 0)
 
-  ! Check that checksum is the same across ensemble members
-  test_compare_online = .true.
-  if (test_compare_online) then
-    ensemble_info = get_ensemble_size()
-    ensemble_size = ensemble_info(1)
-    npes = ensemble_info(2)
-    allocate(ensemble_pelist(ensemble_size, npes))
-    call get_ensemble_pelist(ensemble_pelist, 'ocean')
-
-    if (is_root_pe() .and. ensemble_size > 1) then
-      if (get_ensemble_id() == 1) then
-        do i=2, ensemble_size
-          ! Receive from the first PE in each ensemble member
-          call mpp_recv(bc_peer, glen=1, from_pe=ensemble_pelist(i, 1))
-          if (bc_peer /= bc0) then
-            call chksum_error(FATAL,"Error in chksum_h_2d, ensembles don't match "//trim(mesg))
-          endif
-        enddo
-      else
-        call mpp_send(bc0, plen=1, to_pe=ensemble_pelist(1, 1))
-      endif
-    endif
-
-    deallocate(ensemble_pelist)
-  endif
-
   if (hshift==0) then
       if (is_root_pe()) call chk_sum_msg("h-point:",bc0,mesg)
+      ! Compare checksum in this ensemble member to those in another member
+      compare_ensemble_checksums(bc0)
       return
   endif
 
@@ -169,6 +141,7 @@ subroutine chksum_h_2d(array, mesg, G, haloshift)
   bcNE=subchk(array, G, hshift, hshift)
 
   if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
+  compare_ensemble_checksums(bc0, bcSW, bcSE, bcNW, bcNE)
 
   contains
 
@@ -1100,6 +1073,55 @@ subroutine chksum3d(array, mesg, start_x, end_x, start_y, end_y, start_z, end_z)
 !      mesg, sum, sum1, sum, sum1
 
 end subroutine chksum3d
+
+subroutine compare_ensemble_checksums(bc0, bcSW, bcSE, bcNW, bcNE)
+
+  ! Do this for just bc0 for the time being.
+  integer :: ensemble_info(6), ensemble_size, npes
+  integer, dimension(:,:), allocatable :: ensemble_pelist
+  logical :: test_transpose_domain, test_compare_online
+  integer :: bc_peer, i
+
+  call get_param(param_file, mod, "TEST_COMPARE_CHECKSUMS_ONLINE", test_compare_online, &
+                 "This option enables a test that compares checksums between two "//&
+                 "models running side-by-side. The test can be very useful"//&
+                 " for comparing different configurations within a debugger."//&
+                 "To run this the input.nml must contain:"//&
+                 " &ensemble_nml ensemble_size = 2 / "//&
+                 "Also the test must be run on 2 PEs only.", default=.false.)
+  ! FIXME: there's no reason that this wouldn't work with multiple ensemble members.
+  ! Do a gather instead of recv/send.
+  if (.not. test_compare_online) then
+    return
+  endif
+
+  ensemble_info = get_ensemble_size()
+  ensemble_size = ensemble_info(1)
+  if (ensemble_size /= 2) then
+    return
+  endif
+
+  npes = ensemble_info(2)
+  allocate(ensemble_pelist(ensemble_size, npes))
+  call get_ensemble_pelist(ensemble_pelist, 'ocean')
+
+  if (is_root_pe()) then
+    if (get_ensemble_id() == 1) then
+      do i=2, ensemble_size
+        ! Receive from the first PE in each ensemble member
+        call mpp_recv(bc_peer, glen=1, from_pe=ensemble_pelist(i, 1))
+        if (bc_peer /= bc0) then
+          call chksum_error(FATAL,"Error in chksum_h_2d, ensembles don't match "//trim(mesg))
+        endif
+      enddo
+    else
+      call mpp_send(bc0, plen=1, to_pe=ensemble_pelist(1, 1))
+    endif
+  endif
+
+  deallocate(ensemble_pelist)
+
+end subroutine compare_checksums
 
 ! =====================================================================
 
