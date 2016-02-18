@@ -28,7 +28,7 @@ module MOM_diag_mediator
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_coms,             only : PE_here
-use MOM_error_handler,    only : MOM_error, FATAL, is_root_pe
+use MOM_error_handler,    only : MOM_error, FATAL, is_root_pe, assert
 use MOM_file_parser,      only : get_param, log_param, log_version, param_file_type
 use MOM_grid,             only : ocean_grid_type
 use MOM_io,               only : file_exists, field_exists, field_size
@@ -1905,16 +1905,5 @@ subroutine log_available_diag(used, module_name, field_name, long_name, units, s
   if (present(standard_name)) call describe_option("standard_name", standard_name)
 
 end subroutine log_available_diag
-
-subroutine assert(logical_arg, msg)
-
-  logical, intent(in) :: logical_arg
-  character(len=*), intent(in) :: msg
-
-  if (.not. logical_arg) then
-    call MOM_error(FATAL, msg)
-  endif
-
-end subroutine assert
 
 end module MOM_diag_mediator

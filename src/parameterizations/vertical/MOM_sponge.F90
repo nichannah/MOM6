@@ -531,6 +531,9 @@ subroutine apply_sponge(h, dt, G, ea, eb, CS, Rcv_ml)
   endif
 
   do c=1,CS%num_col
+    assert(CS%Ref_eta(1, c) == 0.0, &
+           'Reference eta is expected to be zero at surface.')
+
 ! c is an index for the next 3 lines but a multiplier for the rest of the loop
 ! Therefore we use c as per C code and increment the index where necessary.
     i = CS%col_i(c) ; j = CS%col_j(c)

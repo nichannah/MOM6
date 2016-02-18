@@ -15,7 +15,7 @@ use mpp_mod, only : mpp_pe, mpp_root_pe, stdlog, stdout
 
 implicit none ; private
 
-public MOM_error, MOM_mesg, NOTE, WARNING, FATAL, is_root_pe, stdlog, stdout
+public MOM_error, assert, MOM_mesg, NOTE, WARNING, FATAL, is_root_pe, stdlog, stdout
 public MOM_set_verbosity, MOM_get_verbosity, MOM_verbose_enough
 public callTree_showQuery, callTree_enter, callTree_leave, callTree_waypoint
 
@@ -90,6 +90,17 @@ subroutine MOM_error(level, message, all_print)
       call mpp_error(level, message)
   end select
 end subroutine MOM_error
+
+subroutine assert(logical_arg, msg)
+
+  logical, intent(in) :: logical_arg
+  character(len=*), intent(in) :: msg
+
+  if (.not. logical_arg) then
+    call MOM_error(FATAL, msg)
+  endif
+
+end subroutine assert
 
 subroutine MOM_set_verbosity(verb)
   integer, intent(in) :: verb
