@@ -57,6 +57,7 @@ type, public :: ocean_grid_type
   integer :: jdg_offset !< The offset between the corresponding global and local j-indices.
   integer :: ke         !< The number of layers in the vertical.
   logical :: symmetric  !< True if symmetric memory is used.
+  integer :: nrot90     !< Number of 90 degree rotations on grid (and other) fields 
   logical :: nonblocking_updates  !< If true, non-blocking halo updates are
                                   !! allowed.  The default is .false. (for now).
   integer :: first_direction !< An integer that indicates which direction is
@@ -224,6 +225,7 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
     G%idg_offset = HI%idg_offset ; G%jdg_offset = HI%jdg_offset
     G%isd_global = G%isd + HI%idg_offset ; G%jsd_global = G%jsd + HI%jdg_offset
     G%symmetric = HI%symmetric
+    G%nrot90 = HI%nrot90
   else
     local_indexing = .true.
     if (present(global_indexing)) local_indexing = .not.global_indexing

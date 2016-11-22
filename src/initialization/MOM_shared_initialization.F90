@@ -89,14 +89,34 @@ subroutine MOM_calculate_grad_Coriolis(dF_dx, dF_dy, G)
   ! Local variables
   integer :: i,j
   real :: f1, f2
-  
+
   if ((LBOUND(G%CoriolisBu,1) > G%isc-1) .or. &
       (LBOUND(G%CoriolisBu,2) > G%isc-1)) then
     ! The gradient of the Coriolis parameter can not be calculated with this grid.
     dF_dx(:,:) = 0.0 ; dF_dy(:,:) = 0.0
     return
   endif
-  
+
+  print*, 'MOM_calculate_grad_Coriolis'
+  print*, 'G%CoriolisBu(1, 1) ', G%CoriolisBu(1, 1)
+  print*, 'G%isc: ', G%isc
+  print*, 'G%iec: ', G%iec
+  print*, 'G%jsc: ', G%jsc
+  print*, 'G%jec: ', G%jec
+  print*, 'G%IscB: ', G%IscB
+  print*, 'G%IecB: ', G%IecB
+  print*, 'G%JscB: ', G%JscB
+  print*, 'G%JecB: ', G%JecB
+
+  print*, 'G%isd: ', G%isd
+  print*, 'G%ied: ', G%ied
+  print*, 'G%jsd: ', G%jsd
+  print*, 'G%jed: ', G%jed
+  print*, 'G%IsdB: ', G%IsdB
+  print*, 'G%IedB: ', G%IedB
+  print*, 'G%JsdB: ', G%JsdB
+  print*, 'G%JedB: ', G%JedB
+
   do j=G%jsc, G%jec ; do i=G%isc, G%iec
     f1 = 0.5*( G%CoriolisBu(I,J) + G%CoriolisBu(I,J-1) )
     f2 = 0.5*( G%CoriolisBu(I-1,J) + G%CoriolisBu(I-1,J-1) )
@@ -105,6 +125,12 @@ subroutine MOM_calculate_grad_Coriolis(dF_dx, dF_dy, G)
     f2 = 0.5*( G%CoriolisBu(I,J-1) + G%CoriolisBu(I-1,J-1) )
     dF_dy(i,j) = G%IdyT(i,j) * ( f1 - f2 )
   enddo ; enddo
+
+  if (G%nrot90 == 2) then
+    dF_dx(:,:) = -dF_dx(:,:)
+    dF_dy(:,:) = -dF_dy(:,:)
+  endif
+
   call pass_vector(dF_dx, dF_dy, G%Domain, stagger=AGRID)
 end subroutine MOM_calculate_grad_Coriolis
 

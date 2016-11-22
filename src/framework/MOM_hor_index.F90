@@ -46,6 +46,7 @@ type, public :: hor_index_type
   integer :: idg_offset !< The offset between the corresponding global and local i-indices.
   integer :: jdg_offset !< The offset between the corresponding global and local j-indices.
   logical :: symmetric  !< True if symmetric memory is used.
+  integer :: nrot90 !< Number of 90 degree rotations on grid (and other) fields 
 end type hor_index_type
 
 interface assignment(=); module procedure HIT_assign ; end interface
@@ -74,6 +75,13 @@ subroutine hor_index_init(Domain, HI, param_file, local_indexing, index_offset)
   ! Read all relevant parameters and write them to the model log.
   call log_version(param_file, "MOM_hor_index", version, &
                    "Sets the horizontal array index types.")
+
+  call get_param(param_file, "MOM_hor_index", "ROTATE_DOMAIN_N90", HI%nrot90, &
+                 "The number of 90 degree rotations to be performed on all \n"//&
+                 "model variables. This is a testing feature that can be \n"//&
+                 "used to rule out horizontal indexing errors. \n", default=0)
+  HI%nrot90 = modulo(HI%nrot90, 4)
+  print*, 'HI%nrot90: ', HI%nrot90
 
   HI%IscB = HI%isc ; HI%JscB = HI%jsc
   HI%IsdB = HI%isd ; HI%JsdB = HI%jsd
