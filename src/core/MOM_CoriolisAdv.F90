@@ -14,6 +14,7 @@ use MOM_open_boundary, only : ocean_OBC_type
 use MOM_string_functions, only : uppercase
 use MOM_variables,     only : accel_diag_ptrs
 use MOM_verticalGrid,  only : verticalGrid_type
+use MOM_checksums,     only : do_transform_input, bchksum, uchksum, vchksum
 
 implicit none ; private
 
@@ -197,6 +198,8 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
   real :: QUHeff,QVHeff ! More temporary variables, in m3 s-2 or kg s-2.
   integer :: i, j, k, is, ie, js, je, Isq, Ieq, Jsq, Jeq, nz
 
+  real :: neg_sign, pos_sign ! The sign of the Coriolis acceleration
+
 ! To work, the following fields must be set outside of the usual
 ! is to ie range before this subroutine is called:
 !  v[is-1,ie+1,ie+2], u[is-1,ie+1], vh[ie+1], uh[is-1], and
@@ -211,6 +214,14 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
   Isq = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB ; nz = G%ke
   h_neglect = GV%H_subroundoff
   h_tiny = GV%Angstrom  ! Perhaps this should be set to h_neglect instead.
+
+  pos_sign = 1.0
+  neg_sign = -1.0
+
+  if (do_transform_input()) then
+    pos_sign = -1.0
+    neg_sign = 1.0
+  endif
 
 !$OMP parallel default(none) shared(u,v,h,uh,vh,CAu,CAv,G,CS,AD,Area_h,Area_q,nz,RV,PV, &
 !$OMP                               is,ie,js,je,Isq,Ieq,Jsq,Jeq,h_neglect,h_tiny,OBC)   &
@@ -239,12 +250,12 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
     ! but only first order accurate at boundaries with no slip b.c.s.
     do J=Jsq-1,Jeq+1 ; do I=Isq-1,Ieq+1
       if (CS%no_slip ) then
-        relative_vorticity = (2.0-G%mask2dBu(I,J)) * &
+        relative_vorticity = pos_sign * (2.0-G%mask2dBu(I,J)) * &
            ((v(i+1,J,k)*G%dyCv(i+1,J) - v(i,J,k)*G%dyCv(i,J)) - &
             (u(I,j+1,k)*G%dxCu(I,j+1) - u(I,j,k)*G%dxCu(I,j))) * &
             (G%IdxBu(I,J) * G%IdyBu(I,J)) ! ### Using G%IareaBu(I,J) changes answers.
       else
-        relative_vorticity = G%mask2dBu(I,J) * &
+        relative_vorticity = pos_sign * G%mask2dBu(I,J) * &
            ((v(i+1,J,k)*G%dyCv(i+1,J) - v(i,J,k)*G%dyCv(i,J)) - &
             (u(I,j+1,k)*G%dxCu(I,j+1) - u(I,j,k)*G%dxCu(I,j))) * &
             (G%IdxBu(I,J) * G%IdyBu(I,J)) ! ### Using G%IareaBu(I,J) changes answers.
@@ -261,10 +272,10 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       Ih_q(I,J) = Ih
 
       if (CS%bound_Coriolis) then
-        fv1 = absolute_vorticity*v(i+1,J,k)
-        fv2 = absolute_vorticity*v(i,J,k)
-        fu1 = -absolute_vorticity*u(I,j+1,k)
-        fu2 = -absolute_vorticity*u(I,j,k)
+        fv1 = pos_sign*absolute_vorticity*v(i+1,J,k)
+        fv2 = pos_sign*absolute_vorticity*v(i,J,k)
+        fu1 = neg_sign*absolute_vorticity*u(I,j+1,k)
+        fu2 = neg_sign*absolute_vorticity*u(I,j,k)
         if (fv1 > fv2) then
           max_fvq(I,J) = fv1 ; min_fvq(I,J) = fv2
         else
@@ -304,8 +315,8 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
         d(I-1,j) = ((q(I,j) + q(I-1,J-1)) + 2.0*(q(I-1,J) + q(I,J-1))) * C1_24
         b(I,j) =   ((q(I,J) + q(I-1,J-1)) + 2.0*(q(I-1,J) + q(I,J-1))) * C1_24
         c(I,j) =   (2.0*(q(I,J) + q(I-1,J-1)) + (q(I-1,J) + q(I,J-1))) * C1_24
-        ep_u(i,j) = ((q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
-        ep_v(i,j) = (-(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
+        ep_u(i,j) = (pos_sign*(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
+        ep_v(i,j) = (neg_sign*(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
       enddo ; enddo
     elseif (CS%Coriolis_Scheme == AL_BLEND) then
       Fe_m2 = CS%F_eff_max_blend - 2.0
@@ -349,8 +360,8 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
         c(I,j) =   Sad_wt * 0.25 * q(I,J-1) + (1.0 - Sad_wt) * &
                    ( ((2.0-AL_wt)* q(I,J-1) + AL_wt*q(I-1,J)) + &
                       2.0 * (q(I,J) + q(I-1,J-1)) ) * C1_24
-        ep_u(i,j) = AL_wt  * ((q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
-        ep_v(i,j) = AL_wt * (-(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
+        ep_u(i,j) = AL_wt  * (pos_sign*(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
+        ep_v(i,j) = AL_wt * (neg_sign*(q(I,J) - q(I-1,J-1)) + (q(I-1,J) - q(I,J-1))) * C1_24
       enddo ; enddo
     endif
 
@@ -428,19 +439,19 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
           else
             temp2 = q(I,J-1) * (vh_min(i,j-1)+vh_min(i+1,j-1))
           endif
-          CAu(I,j,k) = 0.25 * G%IdxCu(I,j) * (temp1 + temp2)
+          CAu(I,j,k) = pos_sign * 0.25 * G%IdxCu(I,j) * (temp1 + temp2)
         enddo ; enddo
       else
         ! Energy conserving scheme, Sadourny 1975
         do j=js,je ; do I=Isq,Ieq
-          CAu(I,j,k) = 0.25 * &
-            (q(I,J) * (vh(i+1,J,k) + vh(i,J,k)) + &
-             q(I,J-1) * (vh(i,J-1,k) + vh(i+1,J-1,k))) * G%IdxCu(I,j)
+          CAu(I,j,k) = pos_sign * 0.25 * &
+              (q(I,J) * (vh(i+1,J,k) + vh(i,J,k)) + &
+               q(I,J-1) * (vh(i,J-1,k) + vh(i+1,J-1,k))) * G%IdxCu(I,j)
         enddo ; enddo
       endif
     elseif (CS%Coriolis_Scheme == SADOURNY75_ENSTRO) then
       do j=js,je ; do I=Isq,Ieq
-        CAu(I,j,k) = 0.125 * (G%IdxCu(I,j) * (q(I,J) + q(I,J-1))) * &
+        CAu(I,j,k) = pos_sign * 0.125 * (G%IdxCu(I,j) * (q(I,J) + q(I,J-1))) * &
                      ((vh(i+1,J,k) + vh(i,J,k)) + (vh(i,J-1,k) + vh(i+1,J-1,k)))
       enddo ; enddo
     elseif ((CS%Coriolis_Scheme == ARAKAWA_HSU90) .or. &
@@ -448,7 +459,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
             (CS%Coriolis_Scheme == AL_BLEND)) then
       ! (Global) Energy and (Local) Enstrophy conserving, Arakawa & Hsu 1990
       do j=js,je ; do I=Isq,Ieq
-        CAu(I,j,k) = ((a(I,j) * vh(i+1,J,k) + &
+        CAu(I,j,k) = pos_sign * ((a(I,j) * vh(i+1,J,k) + &
                        c(I,j) * vh(i,J-1,k))  &
                     + (b(I,j) * vh(i,J,k) +   &
                        d(I,j) * vh(i+1,J-1,k))) * G%IdxCu(I,j)
@@ -471,7 +482,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
         Heff4 = max(Heff4,min(h(i+1,j-1,k),h(i+1,j,k)))
         Heff4 = min(Heff4,max(h(i+1,j-1,k),h(i+1,j,k)))
         if (CS%PV_Adv_Scheme == PV_ADV_CENTERED) then
-          CAu(I,j,k) = 0.5*(abs_vort(I,J)+abs_vort(I,J-1)) * &
+          CAu(I,j,k) = pos_sign * 0.5*(abs_vort(I,J)+abs_vort(I,J-1)) * &
                        ((vh(i  ,J  ,k)+vh(i+1,J-1,k)) +      &
                         (vh(i  ,J-1,k)+vh(i+1,J  ,k)) ) /    &
                        (h_tiny +((Heff1+Heff4) +(Heff2+Heff3)) ) * G%IdxCu(I,j)
@@ -480,7 +491,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
                    (vh(i  ,J-1,k)+vh(i+1,J  ,k)) )
           QVHeff = 0.5*( (abs_vort(I,J)+abs_vort(I,J-1))*VHeff &
                         -(abs_vort(I,J)-abs_vort(I,J-1))*abs(VHeff) )
-          CAu(I,j,k) = QVHeff / &
+          CAu(I,j,k) = pos_sign * QVHeff / &
                      (h_tiny +((Heff1+Heff4) +(Heff2+Heff3)) ) * G%IdxCu(I,j)
         endif
       enddo ; enddo
@@ -513,7 +524,6 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       if (ASSOCIATED(AD%gradKEu)) AD%gradKEu(I,j,k) = -KEx(I,j)
     enddo ; enddo
 
-
     ! Calculate the tendencies of meridional velocity due to the Coriolis
     ! force and momentum advection.  On a Cartesian grid, this is
     !     CAv = - q * uh - d(KE)/dy.
@@ -537,19 +547,19 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
           else
             temp2 = q(I,J) * (uh_min(i,j)+uh_min(i,j+1))
           endif
-          CAv(i,J,k) = - 0.25 * G%IdyCv(i,J) * (temp1 + temp2)
+          CAv(i,J,k) = neg_sign * 0.25 * G%IdyCv(i,J) * (temp1 + temp2)
         enddo ; enddo
       else
         ! Energy conserving scheme, Sadourny 1975
         do J=Jsq,Jeq ; do i=is,ie
-          CAv(i,J,k) = - 0.25* &
-              (q(I-1,J)*(uh(I-1,j,k) + uh(I-1,j+1,k)) + &
-               q(I,J)*(uh(I,j,k) + uh(I,j+1,k))) * G%IdyCv(i,J)
+          CAv(i,J,k) = neg_sign * 0.25* &
+              (q(I,J) * (uh(I,j+1,k) + uh(I,j,k)) + &
+              q(I-1,J) * (uh(I-1,j,k) + uh(I-1,j+1,k))) * G%IdyCv(i,J)
         enddo ; enddo
       endif
     elseif (CS%Coriolis_Scheme == SADOURNY75_ENSTRO) then
       do J=Jsq,Jeq ; do i=is,ie
-        CAv(i,J,k) = -0.125 * (G%IdyCv(i,J) * (q(I-1,J) + q(I,J))) * &
+        CAv(i,J,k) = neg_sign * 0.125 * (G%IdyCv(i,J) * (q(I-1,J) + q(I,J))) * &
                      ((uh(I-1,j,k) + uh(I-1,j+1,k)) + (uh(I,j,k) + uh(I,j+1,k)))
       enddo ; enddo
     elseif ((CS%Coriolis_Scheme == ARAKAWA_HSU90) .or. &
@@ -557,7 +567,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
             (CS%Coriolis_Scheme == AL_BLEND)) then
       ! (Global) Energy and (Local) Enstrophy conserving, Arakawa & Hsu 1990
       do J=Jsq,Jeq ; do i=is,ie
-        CAv(i,J,k) = - ((a(I-1,j)   * uh(I-1,j,k) + &
+        CAv(i,J,k) = neg_sign * ((a(I-1,j)   * uh(I-1,j,k) + &
                          c(I,j+1)   * uh(I,j+1,k))  &
                       + (b(I,j)     * uh(I,j,k) +   &
                          d(I-1,j+1) * uh(I-1,j+1,k))) * G%IdyCv(i,J)
@@ -580,7 +590,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
         Heff4 = max(Heff4,min(h(i-1,j+1,k),h(i,j+1,k)))
         Heff4 = min(Heff4,max(h(i-1,j+1,k),h(i,j+1,k)))
         if (CS%PV_Adv_Scheme == PV_ADV_CENTERED) then
-          CAv(i,J,k) = - 0.5*(abs_vort(I,J)+abs_vort(I-1,J)) * &
+          CAv(i,J,k) = neg_sign * 0.5*(abs_vort(I,J)+abs_vort(I-1,J)) * &
                          ((uh(I  ,j  ,k)+uh(I-1,j+1,k)) +      &
                           (uh(I-1,j  ,k)+uh(I  ,j+1,k)) ) /    &
                       (h_tiny + ((Heff1+Heff4) +(Heff2+Heff3)) ) * G%IdyCv(i,J)
@@ -589,7 +599,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
                    (uh(I-1,j  ,k)+uh(I  ,j+1,k)) )
           QUHeff = 0.5*( (abs_vort(I,J)+abs_vort(I-1,J))*UHeff &
                         -(abs_vort(I,J)-abs_vort(I-1,J))*abs(UHeff) )
-          CAv(i,J,k) = - QUHeff / &
+          CAv(i,J,k) = neg_sign * QUHeff / &
                        (h_tiny + ((Heff1+Heff4) +(Heff2+Heff3)) ) * G%IdyCv(i,J)
         endif
       enddo ; enddo
@@ -624,7 +634,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       if (CS%Coriolis_Scheme == SADOURNY75_ENERGY) then
         if (ASSOCIATED(AD%rv_x_u)) then
           do J=Jsq,Jeq ; do i=is,ie
-            AD%rv_x_u(i,J,k) = - 0.25* &
+            AD%rv_x_u(i,J,k) = neg_sign * 0.25* &
               (q2(I-1,j)*(uh(I-1,j,k) + uh(I-1,j+1,k)) + &
                q2(I,j)*(uh(I,j,k) + uh(I,j+1,k))) * G%IdyCv(i,J)
           enddo ; enddo
@@ -632,7 +642,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
 
         if (ASSOCIATED(AD%rv_x_v)) then
           do j=js,je ; do I=Isq,Ieq
-            AD%rv_x_v(I,j,k) = 0.25 * &
+            AD%rv_x_v(I,j,k) = pos_sign * 0.25 * &
               (q2(I,j) * (vh(i+1,J,k) + vh(i,J,k)) + &
                q2(I,j-1) * (vh(i,J-1,k) + vh(i+1,J-1,k))) * G%IdxCu(I,j)
           enddo ; enddo
@@ -640,7 +650,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       else
         if (ASSOCIATED(AD%rv_x_u)) then
           do J=Jsq,Jeq ; do i=is,ie
-            AD%rv_x_u(i,J,k) = -G%IdyCv(i,J) * C1_12 * &
+            AD%rv_x_u(i,J,k) = neg_sign * G%IdyCv(i,J) * C1_12 * &
               ((q2(I,J) + q2(I-1,J) + q2(I-1,J-1)) * uh(I-1,j,k) + &
                (q2(I-1,J) + q2(I,J) + q2(I,J-1)) * uh(I,j,k) + &
                (q2(I-1,J) + q2(I,J+1) + q2(I,J)) * uh(I,j+1,k) + &
@@ -650,7 +660,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
 
         if (ASSOCIATED(AD%rv_x_v)) then
           do j=js,je ; do I=Isq,Ieq
-            AD%rv_x_v(I,j,k) = G%IdxCu(I,j) * C1_12 * &
+            AD%rv_x_v(I,j,k) = pos_sign * G%IdxCu(I,j) * C1_12 * &
               ((q2(I+1,J) + q2(I,J) + q2(I,J-1)) * vh(i+1,J,k) + &
                (q2(I-1,J) + q2(I,J) + q2(I,J-1)) * vh(i,J,k) + &
                (q2(I-1,J-1) + q2(I,J) + q2(I,J-1)) * vh(i,J-1,k) + &
@@ -662,6 +672,12 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
 
   enddo ! k-loop.
 !$OMP end parallel
+
+  if (.false.) then
+    call bchksum(q, 'q in CorAdCalc', G%HI, fname='q_cor')
+    call uchksum(KEx, 'KEx in CorAdCalc', G%HI, fname='KEx')
+    call vchksum(KEy, 'KEy in CorAdCalc', G%HI, fname='KEy')
+  endif
 
   ! Here the various Coriolis-related derived quantities are offered for averaging.
   if (query_averaging_enabled(CS%diag)) then
