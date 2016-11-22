@@ -105,6 +105,7 @@ subroutine MOM_calculate_grad_Coriolis(dF_dx, dF_dy, G)
     f2 = 0.5*( G%CoriolisBu(I,J-1) + G%CoriolisBu(I-1,J-1) )
     dF_dy(i,j) = G%IdyT(i,j) * ( f1 - f2 )
   enddo ; enddo
+
   call pass_vector(dF_dx, dF_dy, G%Domain, stagger=AGRID)
 end subroutine MOM_calculate_grad_Coriolis
 

@@ -814,10 +814,11 @@ subroutine MOM_forcing_chksum(mesg, fluxes, G, haloshift)
   ! Note that for the chksum calls to be useful for reproducing across PE
   ! counts, there must be no redundant points, so all variables use is..ie
   ! and js...je as their extent.
+
   if (associated(fluxes%taux)) &
-    call uchksum(fluxes%taux, mesg//" fluxes%taux",G%HI,haloshift=1)
+    call uchksum(fluxes%taux, mesg//" fluxes%taux",G%HI,haloshift=1, fname='flux_tau')
   if (associated(fluxes%tauy)) &
-    call vchksum(fluxes%tauy, mesg//" fluxes%tauy",G%HI,haloshift=1)
+    call vchksum(fluxes%tauy, mesg//" fluxes%tauy",G%HI,haloshift=1, fname='flux_tau')
   if (associated(fluxes%ustar)) &
     call hchksum(fluxes%ustar, mesg//" fluxes%ustar",G%HI,haloshift=hshift)
   if (associated(fluxes%buoy)) &

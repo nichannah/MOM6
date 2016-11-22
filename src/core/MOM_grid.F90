@@ -3,9 +3,12 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : do_transform_input
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
+use MOM_error_handler, only : callTree_enter, callTree_leave
 use MOM_file_parser, only : get_param, log_param, log_version, param_file_type
 
 implicit none ; private
@@ -347,7 +350,6 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
 
 end subroutine MOM_grid_init
 
-
 !> set_derived_metrics calculates metric terms that are derived from other metrics.
 subroutine set_derived_metrics(G)
   type(ocean_grid_type), intent(inout) :: G    !< The horizontal grid structure
@@ -440,7 +442,12 @@ subroutine set_first_direction(G, y_first)
   type(ocean_grid_type), intent(inout) :: G
   integer,               intent(in) :: y_first
 
-  G%first_direction = y_first
+  if (do_transform_input()) then
+    G%first_direction = y_first + 1
+  else
+    G%first_direction = y_first
+  endif
+
 end subroutine set_first_direction
 
 !> Allocate memory used by the ocean_grid_type and related structures.

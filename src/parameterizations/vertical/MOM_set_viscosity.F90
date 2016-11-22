@@ -287,6 +287,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
   integer :: i, j, k, is, ie, js, je, Isq, Ieq, Jsq, Jeq, nz, m, K2, nkmb, nkml
   integer :: itt, maxitt=20
   real :: tmp_val_m1_to_p1
+
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
   Isq = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB
   nkmb = GV%nk_rho_varies ; nkml = GV%nkml
@@ -295,6 +296,8 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
   Vol_quit = 0.9*GV%Angstrom + h_neglect
   H_to_m = GV%H_to_m ; m_to_H = GV%m_to_H
   C2pi_3 = 8.0*atan(1.0)/3.0
+
+  h_at_vel(:, :) = 0.0
 
   if (.not.associated(CS)) call MOM_error(FATAL,"MOM_vert_friction(BBL): "//&
          "Module must be initialized before it is used.")
@@ -332,6 +335,19 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
 !$OMP                                  BBL_visc_frac,h_vel,L0,Vol_0,dV_dL2,dVol,L_max,     &
 !$OMP                                  L_min,Vol_err_min,Vol_err_max,BBL_frac,Cell_width,  &
 !$OMP                                  gam,Rayleigh, Vol_tol, tmp_val_m1_to_p1)
+
+  if (CS%debug) then
+    print*, 'G%JscB: ', G%JscB
+    print*, 'G%JecB: ', G%JecB
+    print*, 'G%IscB: ', G%IscB
+    print*, 'G%IecB: ', G%IecB
+
+    print*, 'G%Jsc: ', G%Jsc
+    print*, 'G%Jec: ', G%Jec
+    print*, 'G%Isc: ', G%Isc
+    print*, 'G%Iec: ', G%Iec
+  endif
+
   do j=G%JscB,G%JecB ; do m=1,2
 
     if (m==1) then
@@ -358,6 +374,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
           h_at_vel(i,k) =  0.5 * (h(i,j,k) + h(i+1,j,k))
         endif
       endif ; enddo ; enddo
+
     else
       do k=1,nz ; do i=is,ie ; if (do_i(i)) then
         if (v(i,J,k) * (h(i,j+1,k) - h(i,j,k)) >= 0) then
@@ -813,12 +830,16 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
     call post_data(CS%id_Ray_v, visc%Ray_v, CS%diag)
 
   if (CS%debug) then
-    if (associated(visc%Ray_u)) call uchksum(visc%Ray_u,"Ray u",G%HI,haloshift=0)
-    if (associated(visc%Ray_v)) call vchksum(visc%Ray_v,"Ray v",G%HI,haloshift=0)
-    if (associated(visc%kv_bbl_u)) call uchksum(visc%kv_bbl_u,"kv_bbl_u",G%HI,haloshift=0)
-    if (associated(visc%kv_bbl_v)) call vchksum(visc%kv_bbl_v,"kv_bbl_v",G%HI,haloshift=0)
-    if (associated(visc%bbl_thick_u)) call uchksum(visc%bbl_thick_u,"bbl_thick_u",G%HI,haloshift=0)
-    if (associated(visc%bbl_thick_v)) call vchksum(visc%bbl_thick_v,"bbl_thick_v",G%HI,haloshift=0)
+    if (associated(visc%Ray_v)) call uchksum(visc%Ray_v,"Ray u",G%HI,haloshift=0)
+    if (associated(visc%Ray_u)) call vchksum(visc%Ray_u,"Ray v",G%HI,haloshift=0)
+    if (associated(visc%kv_bbl_v)) call uchksum(visc%kv_bbl_v,"kv_bbl_u", &
+                                                G%HI,haloshift=0, fname="kv_bbl")
+    if (associated(visc%kv_bbl_u)) call vchksum(visc%kv_bbl_u,"kv_bbl_v",G%HI, &
+                                                haloshift=0, fname="kv_bbl")
+    if (associated(visc%bbl_thick_v)) call uchksum(visc%bbl_thick_v,"bbl_thick_u", &
+                                                   G%HI,haloshift=0, fname="bbl_thick")
+    if (associated(visc%bbl_thick_u)) call vchksum(visc%bbl_thick_u,"bbl_thick_v", &
+                                                   G%HI,haloshift=0, fname="bbl_thick")
   endif
 
 end subroutine set_viscous_BBL

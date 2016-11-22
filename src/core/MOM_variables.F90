@@ -33,7 +33,7 @@ implicit none ; private
 
 #include <MOM_memory.h>
 
-public MOM_thermovar_chksum
+public MOM_thermovar_chksum, MOM_BT_cont_chksum
 public ocean_grid_type, vardesc, alloc_BT_cont_type, dealloc_BT_cont_type
 
 type, public :: p3d
@@ -355,5 +355,62 @@ subroutine MOM_thermovar_chksum(mesg, tv, G)
   if (associated(tv%TempxPmE)) &
     call hchksum(tv%TempxPmE, mesg//" tv%TempxPmE",G%HI)
 end subroutine MOM_thermovar_chksum
+
+
+subroutine MOM_BT_cont_chksum(BT_cont, mesg, G)
+  type(BT_cont_type),      pointer :: BT_cont
+  character(len=*),        intent(in) :: mesg
+  type(ocean_grid_type),   intent(in) :: G
+
+  if (associated(BT_cont%FA_u_EE)) then
+    call uchksum(BT_cont%FA_u_EE, mesg//" BT_cont%FA_u_EE", G%HI)
+  endif
+  if (associated(BT_cont%FA_v_NN)) then
+    call vchksum(BT_cont%FA_v_NN, mesg//" BT_cont%FA_v_NN", G%HI)
+  endif
+
+  if (associated(BT_cont%FA_u_E0)) then
+    call uchksum(BT_cont%FA_u_E0, mesg//" BT_cont%FA_u_E0", G%HI)
+  endif
+  if (associated(BT_cont%FA_v_N0)) then
+    call vchksum(BT_cont%FA_v_N0, mesg//" BT_cont%FA_v_N0", G%HI)
+  endif
+
+  if (associated(BT_cont%FA_u_WW)) then
+    call uchksum(BT_cont%FA_u_WW, mesg//" BT_cont%FA_u_WW", G%HI)
+  endif
+  if (associated(BT_cont%FA_v_SS)) then
+    call vchksum(BT_cont%FA_v_SS, mesg//" BT_cont%FA_v_SS", G%HI)
+  endif
+
+  if (associated(BT_cont%FA_u_W0)) then
+    call uchksum(BT_cont%FA_u_W0, mesg//" BT_cont%FA_u_W0", G%HI)
+  endif
+  if (associated(BT_cont%FA_v_S0)) then
+    call vchksum(BT_cont%FA_v_S0, mesg//" BT_cont%FA_v_S0", G%HI)
+  endif
+
+  if (associated(BT_cont%uBT_EE)) then
+    call uchksum(BT_cont%uBT_EE, mesg//" BT_cont%uBT_EE", G%HI)
+  endif
+  if (associated(BT_cont%vBT_NN)) then
+    call vchksum(BT_cont%vBT_NN, mesg//" BT_cont%vBT_NN", G%HI)
+  endif
+
+  if (associated(BT_cont%uBT_WW)) then
+    call uchksum(BT_cont%uBT_WW, mesg//" BT_cont%uBT_WW", G%HI)
+  endif
+  if (associated(BT_cont%vBT_SS)) then
+    call vchksum(BT_cont%vBT_SS, mesg//" BT_cont%vBT_SS", G%HI)
+  endif
+
+  if (associated(BT_cont%h_u)) then
+    call uchksum(BT_cont%h_u, mesg//" BT_cont%h_u", G%HI)
+  endif
+  if (associated(BT_cont%h_v)) then
+    call vchksum(BT_cont%h_v, mesg//" BT_cont%h_v", G%HI)
+  endif
+
+end subroutine MOM_BT_cont_chksum
 
 end module MOM_variables

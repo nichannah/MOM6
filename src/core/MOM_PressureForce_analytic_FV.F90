@@ -3,6 +3,7 @@ module MOM_PressureForce_AFV
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
+use MOM_checksums, only : hchksum, vchksum, uchksum
 use MOM_diag_mediator, only : post_data, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, time_type
 use MOM_error_handler, only : MOM_error, FATAL, WARNING, is_root_pe
@@ -483,6 +484,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   integer :: ioff_bk, joff_bk
   integer :: i, j, k, n, ib, jb
   integer :: PRScheme
+  character(len=16) :: fname
 
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
   nkmb=GV%nk_rho_varies
@@ -498,6 +500,9 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   use_ALE = .false.
   if (associated(ALE_CSp)) use_ALE = usePressureReconstruction(ALE_CSp) .and. use_EOS
 
+  PFu(:, :, :) = 0.0
+  PFv(:, :, :) = 0.0
+
   PRScheme = pressureReconstructionScheme(ALE_CSp)
   h_neglect = GV%H_subroundoff
   I_Rho0 = 1.0/GV%Rho0
@@ -508,8 +513,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     !   Determine the surface height anomaly for calculating self attraction
     ! and loading.  This should really be based on bottom pressure anomalies,
     ! but that is not yet implemented, and the current form is correct for
-    ! barotropic tides.
-!$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
+    ! barotropic tides.  !$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
     do j=Jsq,Jeq+1
       do i=Isq,Ieq+1
         e(i,j,1) = -1.0*G%bathyT(i,j)
@@ -540,6 +544,10 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   enddo ; enddo ; enddo
 !$OMP end parallel
 
+  if (.false.) then
+    call hchksum(e, "PressureForce_AFV_Bouss eta", G%HI, haloshift=0)
+    call hchksum(h, "PressureForce_AFV_Bouss h", G%HI, haloshift=0)
+  endif
 
   if (use_EOS) then
 ! With a bulk mixed layer, replace the T & S of any layers that are
@@ -617,6 +625,11 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     endif
   endif
 
+  if (.false.) then
+    call uchksum(PFu,"Before PressureForce PFu",G%HI,haloshift=0)
+    call vchksum(PFv,"Before PressureForce PFv",G%HI,haloshift=0)
+  endif
+
 !$OMP parallel do default(none) shared(use_p_atm,rho_ref,G,GV,e,     &
 !$OMP                                  p_atm,nz,use_EOS,use_ALE,PRScheme,T_t,T_b,S_t, &
 !$OMP                                  S_b,CS,tv,tv_tmp,h,PFu,I_Rho0,h_neglect,PFv,dM)&
@@ -631,6 +644,14 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     Jsq_bk=G%Block(n)%JscB    ; Jeq_bk=G%Block(n)%JecB
     ioff_bk = G%Block(n)%idg_offset - G%HI%idg_offset
     joff_bk = G%Block(n)%jdg_offset - G%HI%jdg_offset
+
+    if (.false.) then
+      print*, 'ioff_bk, joff_bk: ', ioff_bk, joff_bk
+      print*, 'is_bk, js_bk: ', is_bk, js_bk
+      print*, 'ie_bk, je_bk: ', ie_bk, je_bk
+      print*, 'isq_bk, jsq_bk: ', isq_bk, jsq_bk
+      print*, 'ieq_bk, jeq_bk: ', ieq_bk, jeq_bk
+    endif
 
     ! Set the surface boundary conditions on pressure anomaly and its horizontal
     ! integrals, assuming that the surface pressure anomaly varies linearly
@@ -725,6 +746,41 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       do jb=Jsq_bk,Jeq_bk+1 ; do ib=Isq_bk,Ieq_bk+1
         pa_bk(ib,jb) = pa_bk(ib,jb) + dpa_bk(ib,jb)
       enddo ; enddo
+
+      if (.false.) then
+        write(fname, "(A5,I1)") "pa_bk", k 
+        call hchksum(pa_bk(:, :),"pa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+        write(fname, "(A11,I1)") "intz_dpa_bk", k 
+        call hchksum(intz_dpa_bk(:, :),"intz_dpa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+        write(fname, "(A1,I1)") "h", k 
+        call hchksum(h(:, :, k),"h", G%HI,haloshift=0, fname=trim(fname))
+        write(fname, "(A1,I1)") "e", k 
+        call hchksum(e(:, :, k),"e", G%HI,haloshift=0, fname=trim(fname))
+
+        write(fname, "(A10,I1)") "int_dpa_bk", k 
+        call uchksum(intx_dpa_bk(:, :),"intx_dpa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+        call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+
+        write(fname, "(A9,I1)") "int_pa_bk", k 
+        call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+        call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0, &
+                     fname=trim(fname))
+
+        write(fname, "(A3,I1)") "IdC", k
+        call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0, fname=trim(fname))
+        call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0, fname=trim(fname))
+
+        write(fname, "(A2,I1)") "PF", k
+        call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0, &
+                     fname=trim(fname))
+        call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0, &
+                     fname=trim(fname))
+      endif
     enddo
 
     if (CS%GFS_scale < 1.0) then
@@ -759,6 +815,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       enddo ; enddo
     endif
   endif
+
 
   if (CS%id_e_tidal>0) call post_data(CS%id_e_tidal, e_tidal, CS%diag)
 

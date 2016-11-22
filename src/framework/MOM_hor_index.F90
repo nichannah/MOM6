@@ -46,6 +46,7 @@ type, public :: hor_index_type
   integer :: idg_offset !< The offset between the corresponding global and local i-indices.
   integer :: jdg_offset !< The offset between the corresponding global and local j-indices.
   logical :: symmetric  !< True if symmetric memory is used.
+  integer :: nrot90 !< Number of 90 degree rotations on grid (and other) fields 
 end type hor_index_type
 
 interface assignment(=); module procedure HIT_assign ; end interface

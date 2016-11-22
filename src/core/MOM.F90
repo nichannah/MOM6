@@ -507,6 +507,7 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
   logical :: showCallTree
   logical :: do_pass_kd_kv_turb ! This is used for a group halo pass.
   logical :: use_ice_shelf ! Needed for ALE
+
   G => CS%G ; GV => CS%GV
   is   = G%isc  ; ie   = G%iec  ; js   = G%jsc  ; je   = G%jec ; nz = G%ke
   Isq  = G%IscB ; Ieq  = G%IecB ; Jsq  = G%JscB ; Jeq  = G%JecB
@@ -652,6 +653,7 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     call check_redundant("Before steps ", fluxes%taux, fluxes%tauy, G)
   endif
   call cpu_clock_end(id_clock_other)
+
 
   do n=1,n_max
 

@@ -65,6 +65,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
+use MOM_checksums,           only : do_transform_input, transform_input, transform_and_swap_input
 use MOM_constants,           only : hlv, hlf
 use MOM_cpu_clock,           only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,           only : CLOCK_MODULE
@@ -478,6 +479,7 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   real :: PI
   integer :: i, j, is, ie, js, je, Isq, Ieq, Jsq, Jeq
   integer :: isd, ied, jsd, jed, IsdB, IedB, JsdB, JedB
+  real, allocatable, dimension(:, :) :: tmp
 
   call callTree_enter("wind_forcing_2gyre, MOM_surface_forcing.F90")
   is   = G%isc  ; ie   = G%iec  ; js   = G%jsc  ; je   = G%jec
@@ -488,18 +490,31 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   !set the steady surface wind stresses, in units of Pa.
   PI = 4.0*atan(1.0)
 
-  do j=js,je ; do I=Isq,Ieq
-    fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu(I,j)-CS%South_lat) / &
-                                      CS%len_lat))
-  enddo ; enddo
+  if (do_transform_input()) then
+    ! Need to undo the transform. FIXME: do reverse properly
+    allocate(tmp(size(G%geoLatCv, 2), size(G%geoLatCv, 1)))
+    tmp(:, :) = transpose(G%geoLatCv(:, :))
+    do j=js,je ; do I=Isq,Ieq
+      fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(tmp(I,j)-CS%South_lat) / &
+                                        CS%len_lat))
+    enddo ; enddo
+  else
+    do j=js,je ; do I=Isq,Ieq
+      fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu(I,j)-CS%South_lat) / &
+                                        CS%len_lat))
+    enddo ; enddo
+  endif
 
   do J=Jsq,Jeq ; do i=is,ie
     fluxes%tauy(i,J) = 0.0
   enddo ; enddo
 
+  if (do_transform_input()) then
+    call transform_and_swap_input(fluxes%taux, fluxes%tauy)
+  endif
+
   call callTree_leave("wind_forcing_2gyre")
 end subroutine wind_forcing_2gyre
-
 
 subroutine wind_forcing_1gyre(state, fluxes, day, G, CS)
   type(surface),            intent(inout) :: state
