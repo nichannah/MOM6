@@ -76,13 +76,6 @@ subroutine hor_index_init(Domain, HI, param_file, local_indexing, index_offset)
   call log_version(param_file, "MOM_hor_index", version, &
                    "Sets the horizontal array index types.")
 
-  call get_param(param_file, "MOM_hor_index", "ROTATE_DOMAIN_N90", HI%nrot90, &
-                 "The number of 90 degree rotations to be performed on all \n"//&
-                 "model variables. This is a testing feature that can be \n"//&
-                 "used to rule out horizontal indexing errors. \n", default=0)
-  HI%nrot90 = modulo(HI%nrot90, 4)
-  print*, 'HI%nrot90: ', HI%nrot90
-
   HI%IscB = HI%isc ; HI%JscB = HI%jsc
   HI%IsdB = HI%isd ; HI%JsdB = HI%jsd
   HI%IsgB = HI%isg ; HI%JsgB = HI%jsg

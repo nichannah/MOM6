@@ -126,11 +126,6 @@ subroutine MOM_calculate_grad_Coriolis(dF_dx, dF_dy, G)
     dF_dy(i,j) = G%IdyT(i,j) * ( f1 - f2 )
   enddo ; enddo
 
-  if (G%nrot90 == 2) then
-    dF_dx(:,:) = -dF_dx(:,:)
-    dF_dy(:,:) = -dF_dy(:,:)
-  endif
-
   call pass_vector(dF_dx, dF_dy, G%Domain, stagger=AGRID)
 end subroutine MOM_calculate_grad_Coriolis
 

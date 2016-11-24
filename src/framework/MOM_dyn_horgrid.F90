@@ -139,9 +139,6 @@ type, public :: dyn_horgrid_type
   real :: len_lon = 0.  ! The longitudinal (or x-coord) extent of physical domain
   real :: Rad_Earth = 6.378e6 ! The radius of the planet in meters.
   real :: max_depth     ! The maximum depth of the ocean in meters.
-
-  integer :: nrot90 ! The number of 90 degree rotations applied to grid and
-                    ! other fields
 end type dyn_horgrid_type
 
 contains
@@ -179,7 +176,6 @@ subroutine create_dyn_horgrid(G, HI, bathymetry_at_vel)
   G%idg_offset = HI%idg_offset ; G%jdg_offset = HI%jdg_offset
   G%isd_global = G%isd + HI%idg_offset ; G%jsd_global = G%jsd + HI%jdg_offset
   G%symmetric = HI%symmetric
-  G%nrot90 = HI%nrot90
 
   G%bathymetry_at_vel = .false.
   if (present(bathymetry_at_vel)) G%bathymetry_at_vel = bathymetry_at_vel

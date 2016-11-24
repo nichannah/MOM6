@@ -3,9 +3,11 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, rot90
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
+use MOM_error_handler, only : callTree_enter, callTree_leave
 use MOM_file_parser, only : get_param, log_param, log_version, param_file_type
 
 implicit none ; private
@@ -13,6 +15,7 @@ implicit none ; private
 #include <MOM_memory.h>
 
 public MOM_grid_init, MOM_grid_end, set_derived_metrics, set_first_direction
+public MOM_grid_rotate
 public isPointInCell, hor_index_type
 
 !> Ocean grid type. See mom_grid for details.
@@ -348,6 +351,111 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
         call MOM_error(FATAL, "MOM_grid_init: G%jed_bk > G%jed")
 
 end subroutine MOM_grid_init
+
+subroutine MOM_grid_rotate(G, param_file)
+  type(ocean_grid_type), intent(inout) :: G          !< The horizontal grid type
+  type(param_file_type), intent(in)    :: param_file !< Parameter file handle
+
+  character(len=40)  :: mod_nm  = "MOM_grid" ! This module's name.
+
+  call callTree_enter("MOM_grid_rotate(), MOM_grid.F90")
+
+  call get_param(param_file, mod_nm, "ROTATE_GRID_N90", G%nrot90, &
+                 "The number of 90 degree rotations to be performed on the \n"//&
+                 "grid and model inputs. This is a testing feature that can be \n"//&
+                 "used to rule out horizontal indexing errors. \n", default=0)
+  G%nrot90 = modulo(G%nrot90, 4)
+  G%HI%nrot90 = G%nrot90
+  print*, 'G%nrot90: ', G%nrot90
+
+  ! Rotate grid fields
+  call rot90(G%bathyT, G%nrot90)
+
+  call rot90(G%dxT, G%nrot90)
+  call rot90(G%dxCu, G%nrot90)
+  call rot90(G%dxCv, G%nrot90)
+  call rot90(G%dxBu, G%nrot90)
+
+  call rot90(G%dyT, G%nrot90)
+  call rot90(G%dyCu, G%nrot90)
+  call rot90(G%dyCv, G%nrot90)
+  call rot90(G%dyBu, G%nrot90)
+
+  call rot90(G%IdxT, G%nrot90)
+  call rot90(G%IdxCu, G%nrot90)
+  call rot90(G%IdxCv, G%nrot90)
+  call rot90(G%IdxBu, G%nrot90)
+
+  call rot90(G%IdyT, G%nrot90)
+  call rot90(G%IdyCu, G%nrot90)
+  call rot90(G%IdyCv, G%nrot90)
+  call rot90(G%IdyBu, G%nrot90)
+
+  call rot90(G%areaT, G%nrot90)
+  call rot90(G%areaBu, G%nrot90)
+
+  call rot90(G%IareaT, G%nrot90)
+  call rot90(G%IareaBu, G%nrot90)
+
+  call rot90(G%geoLonT, G%nrot90)
+  call rot90(G%geoLatT, G%nrot90)
+  call rot90(G%geoLonBu, G%nrot90)
+  call rot90(G%geoLatBu, G%nrot90)
+  call rot90(G%geoLonCu, G%nrot90)
+  call rot90(G%geoLatCu, G%nrot90)
+  call rot90(G%geoLonCv, G%nrot90)
+  call rot90(G%geoLatCv, G%nrot90)
+
+  if (.true.) call MOM_grid_print_checksums(G)
+
+  call callTree_leave("MOM_grid_rotate(), MOM_grid.F90")
+
+end subroutine MOM_grid_rotate
+
+subroutine MOM_grid_print_checksums(G)
+  type(ocean_grid_type), intent(in) :: G          !< The horizontal grid type
+
+  integer halo
+  character(len=40)  :: mod_nm  = "MOM_grid" ! This module's name.
+
+  halo = min(G%ied-G%iec, G%jed-G%jec)
+
+  call hchksum(G%bathyT, trim(mod_nm)//': depth', G%HI, haloshift=1)
+  call hchksum(G%mask2dT, trim(mod_nm)//':  mask2dT ', G%HI)
+  call uchksum(G%mask2dCu, trim(mod_nm)//': mask2dCu ', G%HI)
+  call vchksum(G%mask2dCv, trim(mod_nm)//':  mask2dCv ', G%HI)
+  call qchksum(G%mask2dBu, trim(mod_nm)//':  mask2dBu ', G%HI)
+
+  call hchksum(G%dxT, trim(mod_nm)//': dxT',G%HI, haloshift=halo)
+  call uchksum(G%dxCu, trim(mod_nm)//': dxCu',G%HI, haloshift=halo)
+  call vchksum(G%dxCv, trim(mod_nm)//': dxCv',G%HI, haloshift=halo)
+  call qchksum(G%dxBu, trim(mod_nm)//': dxBu',G%HI, haloshift=halo)
+  call hchksum(G%dyT, trim(mod_nm)//': dyT',G%HI, haloshift=halo)
+  call uchksum(G%dyCu, trim(mod_nm)//': dyCu',G%HI, haloshift=halo)
+  call vchksum(G%dyCv, trim(mod_nm)//': dyCv',G%HI, haloshift=halo)
+  call qchksum(G%dyBu, trim(mod_nm)//': dyBu',G%HI, haloshift=halo)
+  call hchksum(G%IdxT, trim(mod_nm)//': IdxT',G%HI, haloshift=halo)
+  call uchksum(G%IdxCu, trim(mod_nm)//': IdxCu',G%HI, haloshift=halo)
+  call vchksum(G%IdxCv, trim(mod_nm)//': IdxCv',G%HI, haloshift=halo)
+  call qchksum(G%IdxBu, trim(mod_nm)//': IdxBu',G%HI, haloshift=halo)
+  call hchksum(G%IdyT, trim(mod_nm)//': IdyT',G%HI, haloshift=halo)
+  call uchksum(G%IdyCu, trim(mod_nm)//': IdyCu',G%HI, haloshift=halo)
+  call vchksum(G%IdyCv, trim(mod_nm)//': IdyCv',G%HI, haloshift=halo)
+  call qchksum(G%IdyBu, trim(mod_nm)//': IdyBu',G%HI, haloshift=halo)
+  call hchksum(G%areaT, trim(mod_nm)//': areaT',G%HI, haloshift=halo)
+  call qchksum(G%areaBu, trim(mod_nm)//': areaBu',G%HI, haloshift=halo)
+  call hchksum(G%IareaT, trim(mod_nm)//': IareaT',G%HI, haloshift=halo)
+  call qchksum(G%IareaBu, trim(mod_nm)//': IareaBu',G%HI, haloshift=halo)
+  call hchksum(G%geoLonT, trim(mod_nm)//': geoLonT',G%HI, haloshift=halo)
+  call hchksum(G%geoLatT, trim(mod_nm)//': geoLatT',G%HI, haloshift=halo)
+  call qchksum(G%geoLonBu, trim(mod_nm)//': geoLonBu',G%HI, haloshift=halo)
+  call qchksum(G%geoLatBu, trim(mod_nm)//': geoLatBu',G%HI, haloshift=halo)
+  call uchksum(G%geoLonCu, trim(mod_nm)//': geoLonCu',G%HI, haloshift=halo)
+  call uchksum(G%geoLatCu, trim(mod_nm)//': geoLatCu',G%HI, haloshift=halo)
+  call vchksum(G%geoLonCv, trim(mod_nm)//': geoLonCv',G%HI, haloshift=halo)
+  call vchksum(G%geoLatCv, trim(mod_nm)//': geoLatCv',G%HI, haloshift=halo)
+
+end subroutine MOM_grid_print_checksums
 
 
 !> set_derived_metrics calculates metric terms that are derived from other metrics.

@@ -66,7 +66,7 @@ module MOM_grid_initialize
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, rot90
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -156,42 +156,6 @@ subroutine set_grid_metrics(G, param_file)
   call callTree_enter("set_derived_metrics(), MOM_grid_initialize.F90")
   call set_derived_dyn_horgrid(G)
   call callTree_leave("set_derived_metrics()")
-
-  ! Rotate grid metrics
-  call rot90(G%dxT, G%nrot90)
-  call rot90(G%dxCu, G%nrot90)
-  call rot90(G%dxCv, G%nrot90)
-  call rot90(G%dxBu, G%nrot90)
-
-  call rot90(G%dyT, G%nrot90)
-  call rot90(G%dyCu, G%nrot90)
-  call rot90(G%dyCv, G%nrot90)
-  call rot90(G%dyBu, G%nrot90)
-
-  call rot90(G%IdxT, G%nrot90)
-  call rot90(G%IdxCu, G%nrot90)
-  call rot90(G%IdxCv, G%nrot90)
-  call rot90(G%IdxBu, G%nrot90)
-
-  call rot90(G%IdyT, G%nrot90)
-  call rot90(G%IdyCu, G%nrot90)
-  call rot90(G%IdyCv, G%nrot90)
-  call rot90(G%IdyBu, G%nrot90)
-
-  call rot90(G%areaT, G%nrot90)
-  call rot90(G%areaBu, G%nrot90)
-
-  call rot90(G%IareaT, G%nrot90)
-  call rot90(G%IareaBu, G%nrot90)
-
-  call rot90(G%geoLonT, G%nrot90)
-  call rot90(G%geoLatT, G%nrot90)
-  call rot90(G%geoLonBu, G%nrot90)
-  call rot90(G%geoLatBu, G%nrot90)
-  call rot90(G%geoLonCu, G%nrot90)
-  call rot90(G%geoLatCu, G%nrot90)
-  call rot90(G%geoLonCv, G%nrot90)
-  call rot90(G%geoLatCv, G%nrot90)
 
   if (debug) call grid_metrics_chksum('MOM_grid_init/set_grid_metrics',G)
 
