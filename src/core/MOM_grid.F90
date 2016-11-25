@@ -367,6 +367,10 @@ subroutine MOM_grid_rotate(G, param_file)
   G%nrot90 = modulo(G%nrot90, 4)
   G%HI%nrot90 = G%nrot90
   print*, 'G%nrot90: ', G%nrot90
+  if (modulo(G%nrot90, 2) == 1 .and. G%symmetric) then
+    call MOM_error(FATAL, &
+          "MOM_grid_rotate: can't rotate 90 degrees with symmetric memory.")
+  endif
 
   ! Rotate grid fields
   call rot90(G%bathyT, G%nrot90)

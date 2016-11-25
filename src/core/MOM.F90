@@ -91,7 +91,6 @@ use MOM_EOS,                   only : EOS_init
 use MOM_error_checking,        only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end, MOM_grid_rotate
-use MOM_grid,                  only : MOM_grid_rotate
 use MOM_hor_index,             only : hor_index_type, hor_index_init
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
 use MOM_interface_heights,     only : find_eta

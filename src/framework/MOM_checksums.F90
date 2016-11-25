@@ -1166,19 +1166,28 @@ subroutine rot90_2d(array, nrot90)
   real, dimension(:,:), intent(inout) :: array !< The array to be rotated
   integer, intent(in) :: nrot90 !< Number of 90 degree rotations to perform
 
-  integer :: nrot
+  integer, dimension(2) :: sh
 
-  nrot = modulo(nrot90, 4)
+  if (.not. nrot90 < 4) then
+    call MOM_error(FATAL, 'rot90_2d: nrot should be < 4')
+  endif
 
-  if (nrot == 1) then
+  if (modulo(nrot90, 2) == 1) then
+    sh = shape(array)
+    if (sh(1) /= sh(2)) then
+      call MOM_error(FATAL, 'rot90_2d: 90 deg rotation requires a square domain.')
+    endif
+  endif
+
+  if (nrot90 == 1) then
     ! transpose, reverse rows
     array = transpose(array)
     array(:, :) = array(:, ubound(array, 2):lbound(array, 2):-1)
-  elseif (nrot == 2) then
+  elseif (nrot90 == 2) then
     ! reverse both rows and cols
     array(:, :) = array(ubound(array, 1):lbound(array, 1):-1, &
                         ubound(array, 2):lbound(array, 2):-1)
-  elseif (nrot == 3) then
+  elseif (nrot90 == 3) then
     ! transpose, reverse cols
     array = transpose(array)
     array(:, :) = array(ubound(array, 1):lbound(array, 1):-1, :)
@@ -1193,4 +1202,3 @@ subroutine rot90_3d(array, nrot90)
 end subroutine rot90_3d
 
 end module MOM_checksums
-
