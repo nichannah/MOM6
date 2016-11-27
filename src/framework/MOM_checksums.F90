@@ -124,7 +124,13 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
+  if (HI%nrot90 == 1) then
+    tmp = bcSW
+    bcSW = bcSE
+    bcSE = bcNE
+    bcNE = bcNW
+    bcNW = tmp
+  elseif (HI%nrot90 == 2) then
     tmp = bcSW
     bcSW = bcNE
     bcNE = tmp
@@ -633,7 +639,13 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
+  if (HI%nrot90 == 1) then
+    tmp = bcSW
+    bcSW = bcSE
+    bcSE = bcNE
+    bcNE = bcNW
+    bcNW = tmp
+  elseif (HI%nrot90 == 2) then
     tmp = bcSW
     bcSW = bcNE
     bcNE = tmp
