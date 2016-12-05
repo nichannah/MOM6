@@ -375,6 +375,16 @@ subroutine MOM_grid_rotate(G, param_file)
   ! Rotate grid fields
   call rot90(G%bathyT, G%nrot90)
 
+  call rot90(G%CoriolisBu, G%nrot90)
+  call rot90(G%dF_dx, G%nrot90)
+  call rot90(G%dF_dy, G%nrot90)
+
+  call rot90(G%mask2dT, G%nrot90)
+  call rot90(G%mask2dBu, G%nrot90)
+
+  call rot90(G%mask2dCu, G%nrot90)
+  call rot90(G%mask2dCv, G%nrot90)
+
   call rot90(G%dxT, G%nrot90)
   call rot90(G%dxCu, G%nrot90)
   call rot90(G%dxCv, G%nrot90)
@@ -425,10 +435,15 @@ subroutine MOM_grid_print_checksums(G)
   halo = min(G%ied-G%iec, G%jed-G%jec)
 
   call hchksum(G%bathyT, trim(mod_nm)//': depth', G%HI, haloshift=1)
-  call hchksum(G%mask2dT, trim(mod_nm)//':  mask2dT ', G%HI)
-  call uchksum(G%mask2dCu, trim(mod_nm)//': mask2dCu ', G%HI)
-  call vchksum(G%mask2dCv, trim(mod_nm)//':  mask2dCv ', G%HI)
-  call qchksum(G%mask2dBu, trim(mod_nm)//':  mask2dBu ', G%HI)
+
+  call qchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI, haloshift=halo)
+  call hchksum(G%dF_dx, "MOM_initialize_fixed: dF_dx ", G%HI, haloshift=halo)
+  call hchksum(G%dF_dy, "MOM_initialize_fixed: dF_dy ", G%HI, haloshift=halo)
+
+  call hchksum(G%mask2dT, trim(mod_nm)//':  mask2dT ', G%HI, haloshift=halo)
+  call uchksum(G%mask2dCu, trim(mod_nm)//': mask2dCu ', G%HI, haloshift=halo)
+  call vchksum(G%mask2dCv, trim(mod_nm)//':  mask2dCv ', G%HI, haloshift=halo)
+  call qchksum(G%mask2dBu, trim(mod_nm)//':  mask2dBu ', G%HI, haloshift=halo)
 
   call hchksum(G%dxT, trim(mod_nm)//': dxT',G%HI, haloshift=halo)
   call uchksum(G%dxCu, trim(mod_nm)//': dxCu',G%HI, haloshift=halo)

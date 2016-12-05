@@ -51,7 +51,7 @@ module MOM_set_visc
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : uchksum, vchksum
+use MOM_checksums, only : uchksum, vchksum, chksum, hchksum, write_to_netcdf
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, register_diag_field, safe_alloc_ptr
 use MOM_diag_mediator, only : diag_ctrl, time_type
@@ -284,6 +284,13 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
   integer :: i, j, k, is, ie, js, je, Isq, Ieq, Jsq, Jeq, nz, m, K2, nkmb, nkml
   integer :: itt, maxitt=20
   real :: tmp_val_m1_to_p1
+  real :: saved_h_at_u(SZIB_(G),SZJ_(G))
+  real :: saved_h_at_v(SZI_(G),SZJB_(G))
+  real :: saved_ustar(SZIB_(G),SZJB_(G))
+  real :: saved_do_i_u(SZIB_(G),SZJB_(G))
+  real :: saved_do_i_v(SZIB_(G),SZJB_(G))
+
+  integer, save :: calls = 0
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
   Isq = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB
   nkmb = GV%nk_rho_varies ; nkml = GV%nkml
@@ -292,6 +299,13 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
   Vol_quit = 0.9*GV%Angstrom + h_neglect
   H_to_m = GV%H_to_m ; m_to_H = GV%m_to_H
   C2pi_3 = 8.0*atan(1.0)/3.0
+
+  saved_h_at_u(:, :) = 0.0
+  saved_h_at_v(:, :) = 0.0
+  saved_ustar(:, :) = 0.0
+  saved_do_i_u(:, :) = 0.0
+  saved_do_i_v(:, :) = 0.0
+  h_at_vel(:, :) = 0.0
 
   if (.not.associated(CS)) call MOM_error(FATAL,"MOM_vert_friction(BBL): "//&
          "Module must be initialized before it is used.")
@@ -307,6 +321,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
 !  if (CS%linear_drag) ustar(:) = cdrag_sqrt*CS%drag_bg_vel
 
   if ((nkml>0) .and. .not.use_BBL_EOS) then
+    print*, 'Calculating density'
     do i=G%IscB,G%IecB+1 ; p_ref(i) = tv%P_ref ; enddo
 !$OMP parallel do default(none) shared(Jsq,Jeq,Isq,Ieq,nkmb,tv,p_ref,Rml)
     do j=Jsq,Jeq+1 ; do k=1,nkmb
@@ -314,6 +329,9 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
                       Rml(:,j,k), Isq, Ieq-Isq+2, tv%eqn_of_state)
     enddo ; enddo
   endif
+
+  call hchksum(h ,"set_viscous_BBL h", G%HI, haloshift=1)
+  call hchksum(h(:,:,1) ,"set_viscous_BBL h", G%HI, haloshift=1)
 
 !$OMP parallel do default(none) shared(u, v, h, tv, visc, G, GV, CS, Rml, is, ie, js, je,  &
 !$OMP                                  nz, Isq, Ieq, Jsq, Jeq, nkmb, h_neglect, Rho0x400_G,&
@@ -329,6 +347,17 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
 !$OMP                                  BBL_visc_frac,h_vel,L0,Vol_0,dV_dL2,dVol,L_max,     &
 !$OMP                                  L_min,Vol_err_min,Vol_err_max,BBL_frac,Cell_width,  &
 !$OMP                                  gam,Rayleigh, Vol_tol, tmp_val_m1_to_p1)
+
+  print*, 'G%JscB: ', G%JscB
+  print*, 'G%JecB: ', G%JecB
+  print*, 'G%IscB: ', G%IscB
+  print*, 'G%IecB: ', G%IecB
+
+  print*, 'G%Jsc: ', G%Jsc
+  print*, 'G%Jec: ', G%Jec
+  print*, 'G%Isc: ', G%Isc
+  print*, 'G%Iec: ', G%Iec
+
   do j=G%JscB,G%JecB ; do m=1,2
 
     if (m==1) then
@@ -336,34 +365,45 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
       is = G%IscB ; ie = G%IecB
       do i=is,ie
         do_i(i) = .false.
-        if (G%mask2dCu(i,j) > 0) do_i(i) = .true.
+        if (G%mask2dCu(i,j) > 0) do_i(i) = .true. ; saved_do_i_u(i, j) = 1.0
       enddo
     else
       is = G%isc ; ie = G%iec
       do i=is,ie
         do_i(i) = .false.
-        if (G%mask2dCv(i,j) > 0) do_i(i) = .true.
+        if (G%mask2dCv(i,j) > 0) do_i(i) = .true. ; saved_do_i_v(i, j) = 1.0
       enddo
     endif
 
     if (m==1) then
       do k=1,nz ; do i=is,ie ; if (do_i(i)) then
-        if (u(i,j,k) *(h(i+1,j,k) - h(i,j,k)) >= 0) then
+        if (u(i,j,k) * (h(i+1,j,k) - h(i,j,k)) >= 0) then
           h_at_vel(i,k) = 2.0*h(i,j,k)*h(i+1,j,k) / &
                           (h(i,j,k) + h(i+1,j,k) + h_neglect)
         else
+          stop 'yyy'
           h_at_vel(i,k) =  0.5 * (h(i,j,k) + h(i+1,j,k))
         endif
       endif ; enddo ; enddo
+
+      do i=is,ie ; if (do_i(i)) then
+        saved_h_at_u(i, j) = sum(h_at_vel(i, :))
+      endif ; enddo
+
     else
       do k=1,nz ; do i=is,ie ; if (do_i(i)) then
         if (v(i,j,k) * (h(i,j+1,k) - h(i,j,k)) >= 0) then
           h_at_vel(i,k) = 2.0*h(i,j,k)*h(i,j+1,k) / &
                           (h(i,j,k) + h(i,j+1,k) + h_neglect)
         else
+          stop 'xxx'
           h_at_vel(i,k) = 0.5 * (h(i,j,k) + h(i,j+1,k))
         endif
       endif ; enddo ; enddo
+
+      do i=is,ie ; if (do_i(i)) then
+        saved_h_at_v(i, j) = sum(h_at_vel(i, :))
+      endif ; enddo
     endif
 
     if (use_BBL_EOS .or. .not.CS%linear_drag) then
@@ -417,6 +457,8 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
     else
       do i=is,ie ; ustar(i) = cdrag_sqrt*CS%drag_bg_vel ; enddo
     endif ! Not linear_drag
+
+    do i=is,ie ;saved_ustar(i, j) = ustar(i); enddo
 
     if (use_BBL_EOS) then
       do i=is,ie
@@ -817,6 +859,43 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
     if (associated(visc%bbl_thick_u)) call uchksum(visc%bbl_thick_u,"bbl_thick_u",G%HI,haloshift=0)
     if (associated(visc%bbl_thick_v)) call vchksum(visc%bbl_thick_v,"bbl_thick_v",G%HI,haloshift=0)
   endif
+
+  if (calls == 0) then
+    if (G%HI%nrot90 == 0) then
+      call write_to_netcdf(visc%bbl_thick_u, 'bbl_thick_u.nc')
+      call write_to_netcdf(visc%bbl_thick_v, 'bbl_thick_v.nc')
+      call write_to_netcdf(G%mask2dCv, 'mask2dCv.nc')
+      call write_to_netcdf(G%mask2dCu, 'mask2dCu.nc')
+      call write_to_netcdf(G%BathyT, 'bathyT.nc')
+      call write_to_netcdf(G%CoriolisBu, 'coriolis.nc')
+      call write_to_netcdf(sum(u(:, :, :), 3), 'u.nc')
+      call write_to_netcdf(sum(v(:,:, :), 3), 'v.nc')
+      call write_to_netcdf(sum(h(:,:, :), 3), 'h.nc')
+      call write_to_netcdf(saved_h_at_u(:,:), 'h_at_u.nc')
+      call write_to_netcdf(saved_h_at_v(:,:), 'h_at_v.nc')
+      call write_to_netcdf(saved_ustar(:,:), 'ustar.nc')
+      call write_to_netcdf(saved_do_i_u(:,:), 'do_i_u.nc')
+      call write_to_netcdf(saved_do_i_v(:,:), 'do_i_v.nc')
+    else
+      call write_to_netcdf(visc%bbl_thick_u, 'rot_bbl_thick_u.nc')
+      call write_to_netcdf(visc%bbl_thick_v, 'rot_bbl_thick_v.nc')
+      call write_to_netcdf(G%mask2dCv, 'rot_mask2dCv.nc')
+      call write_to_netcdf(G%mask2dCu, 'rot_mask2dCu.nc')
+      call write_to_netcdf(G%BathyT, 'rot_bathyT.nc')
+      call write_to_netcdf(G%CoriolisBu, 'rot_coriolis.nc')
+      call write_to_netcdf(sum(u(:, :, :), 3), 'rot_u.nc')
+      call write_to_netcdf(sum(v(:,:, :), 3), 'rot_v.nc')
+      call write_to_netcdf(sum(h(:,:,:), 3), 'rot_h.nc')
+      call write_to_netcdf(saved_h_at_u(:,:), 'rot_h_at_u.nc')
+      call write_to_netcdf(saved_h_at_v(:,:), 'rot_h_at_v.nc')
+      call write_to_netcdf(saved_ustar(:,:), 'rot_ustar.nc')
+      call write_to_netcdf(saved_do_i_u(:,:), 'rot_do_i_u.nc')
+      call write_to_netcdf(saved_do_i_v(:,:), 'rot_do_i_v.nc')
+    endif
+  endif
+  print*, 'calls: ', calls
+
+  calls = calls + 1
 
 end subroutine set_viscous_BBL
 

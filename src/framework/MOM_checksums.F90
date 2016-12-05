@@ -30,7 +30,7 @@ use MOM_hor_index, only : hor_index_type
 implicit none ; private
 
 public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: rot90
+public :: rot90, write_to_netcdf, swap_md
 public :: MOM_checksums_init
 
 interface hchksum
@@ -70,6 +70,15 @@ interface rot90
   module procedure rot90_2d, rot90_3d
 end interface
 
+interface swap_md
+  module procedure swap_2d, swap_3d
+end interface
+
+interface write_to_netcdf
+  module procedure write_to_netcdf2d, write_to_netcdf3d
+end interface
+
+
 integer, parameter :: default_shift=0
 logical :: calculateStatistics=.true. ! If true, report min, max and mean.
 logical :: writeChksums=.true. ! If true, report the bitcount checksum
@@ -87,7 +96,7 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift)
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%jsc:HI%jec))) &
@@ -125,22 +134,14 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
   if (HI%nrot90 == 1) then
-    tmp = bcSW
-    bcSW = bcSE
-    bcSE = bcNE
-    bcNE = bcNW
-    bcNW = tmp
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
   elseif (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -196,7 +197,7 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
   logical,    optional, intent(in) :: symmetric !< If true, do the checksums on the
                                                 !! full symmetric computational domain.
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: sym
 
   if (checkForNaNs) then
@@ -242,17 +243,15 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
   endif
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -304,7 +303,7 @@ subroutine chksum_u_2d(array, mesg, HI, haloshift)
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%jsc:HI%jec))) &
@@ -341,17 +340,15 @@ subroutine chksum_u_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees anti-clockwise, rotate checksum
+    ! results clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSE,bcNE,bcSW,bcNW,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -403,7 +400,7 @@ subroutine chksum_v_2d(array, mesg, HI, haloshift)
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%JscB:HI%JecB))) &
@@ -440,17 +437,15 @@ subroutine chksum_v_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -503,7 +498,7 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift)
   character(len=*),                  intent(in) :: mesg  !< An identifying message
   integer,                 optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%jsc:HI%jec,:))) &
@@ -540,17 +535,15 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -602,7 +595,7 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift)
   character(len=*),                   intent(in) :: mesg  !< An identifying message
   integer,                  optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%JscB:HI%JecB,:))) &
@@ -640,22 +633,14 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
   if (HI%nrot90 == 1) then
-    tmp = bcSW
-    bcSW = bcSE
-    bcSE = bcNE
-    bcNE = bcNW
-    bcNW = tmp
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
   elseif (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -707,7 +692,7 @@ subroutine chksum_u_3d(array, mesg, HI, haloshift)
   character(len=*),                  intent(in) :: mesg  !< An identifying message
   integer,    optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%jsc:HI%jec,:))) &
@@ -744,17 +729,15 @@ subroutine chksum_u_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSE,bcNE,bcSW,bcNW,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -806,7 +789,7 @@ subroutine chksum_v_3d(array, mesg, HI, haloshift)
   character(len=*),                  intent(in) :: mesg  !< An identifying message
   integer,    optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift,tmp
+  integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%JscB:HI%JecB,:))) &
@@ -843,17 +826,15 @@ subroutine chksum_v_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 2) then
-    tmp = bcSW
-    bcSW = bcNE
-    bcNE = tmp
-
-    tmp = bcSE
-    bcSE = bcNW
-    bcNW = tmp
+  if (HI%nrot90 == 1) then
+    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
+    ! results anti-clockwise so they match.
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
+  elseif (HI%nrot90 == 2) then
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  else
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
-
-  if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
 
   contains
 
@@ -1178,15 +1159,12 @@ subroutine rot90_2d(array, nrot90)
   real, dimension(:,:), intent(inout) :: array !< The array to be rotated
   integer, intent(in) :: nrot90 !< Number of 90 degree rotations to perform
 
-  integer, dimension(2) :: sh
-
   if (.not. nrot90 < 4) then
     call MOM_error(FATAL, 'rot90_2d: nrot should be < 4')
   endif
 
   if (modulo(nrot90, 2) == 1) then
-    sh = shape(array)
-    if (sh(1) /= sh(2)) then
+    if (size(array, 1) /= size(array, 2)) then
       call MOM_error(FATAL, 'rot90_2d: 90 deg rotation requires a square domain.')
     endif
   endif
@@ -1211,6 +1189,164 @@ subroutine rot90_3d(array, nrot90)
   real, dimension(:,:,:), intent(inout) :: array !< The array to be rotated
   integer, intent(in) :: nrot90 !< Number of 90 degree rotations to perform
 
+  integer :: k
+
+  if (.not. nrot90 < 4) then
+    call MOM_error(FATAL, 'rot90_2d: nrot should be < 4')
+  endif
+
+  if (modulo(nrot90, 2) == 1) then
+    if (size(array, 1) /= size(array, 2)) then
+      call MOM_error(FATAL, 'rot90_2d: 90 deg rotation requires a square domain.')
+    endif
+  endif
+
+  if (nrot90 == 1) then
+    ! transpose, reverse rows
+    do k=lbound(array, 3), ubound(array, 3)
+      array(:, :, k) = transpose(array(:, :, k))
+      array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
+    enddo
+  elseif (nrot90 == 2) then
+    ! reverse both rows and cols
+    do k=lbound(array, 3), ubound(array, 3)
+        array(:, :, k) = array(ubound(array, 1):lbound(array, 1):-1, &
+                               ubound(array, 2):lbound(array, 2):-1, k)
+    enddo
+  elseif (nrot90 == 3) then
+    ! transpose, reverse cols
+    do k=lbound(array, 3), ubound(array, 3)
+      array(:, :, k) = transpose(array(:, :, k))
+      array(:, :, k) = array(ubound(array, 1):lbound(array, 1):-1, :, k)
+    enddo
+  endif
+
 end subroutine rot90_3d
+
+subroutine swap_2d(arrayA, arrayB)
+  real, intent(inout), dimension(:,:) :: arrayA, arrayB
+
+  real, allocatable, dimension(:,:) :: tmp
+
+  if (size(arrayA, 1) /= size(arrayB, 1) .or. size(arrayA, 2) /= size(arrayB, 2)) then
+    call MOM_error(FATAL, 'swap_2d: different shaped arrays cannot be swapped.')
+  endif
+
+  allocate(tmp(size(arrayA, 1), size(arrayA, 2)))
+
+  tmp(:, :) = arrayA(:, :)
+  arrayA(:, :) = arrayB(:, :)
+  arrayB(:, :) = tmp(:, :)
+
+  deallocate(tmp)
+
+end subroutine swap_2d
+
+subroutine swap_3d(arrayA, arrayB)
+  real, intent(inout), dimension(:,:,:) :: arrayA, arrayB
+
+  real, allocatable, dimension(:,:,:) :: tmp
+
+  if (size(arrayA, 1) /= size(arrayB, 1) .or. &
+          size(arrayA, 2) /= size(arrayB, 2) .or. &
+          size(arrayA, 3) /= size(arrayB, 3)) then
+    call MOM_error(FATAL, 'swap_3d: different shaped arrays cannot be swapped.')
+  endif
+
+  allocate(tmp(size(arrayA, 1), size(arrayA, 2), size(arrayA, 3)))
+
+  tmp(:, :, :) = arrayA(:, :, :)
+  arrayA(:, :, :) = arrayB(:, :, :)
+  arrayB(:, :, :) = tmp(:, :, :)
+
+  deallocate(tmp)
+
+end subroutine swap_3d
+
+subroutine write_to_netcdf3d(array, file_name)
+  use netcdf
+  implicit none
+
+  real, intent(in), dimension(:, :,:) :: array
+  character(len=*), intent(in) :: file_name
+
+  integer :: file_id, xdim_id, ydim_id, zdim_id
+  integer :: array_id
+  integer, dimension(3) :: arrdims
+  character(len=*), parameter :: arrunit = 'ergs'
+
+  integer :: i, j, k
+  integer :: ierr
+
+  i = size(array,1)
+  j = size(array,2)
+  k = size(array,3)
+
+  ! create the file
+  ierr = nf90_create(path=trim(file_name), cmode=NF90_CLOBBER, ncid=file_id)
+
+  ! define the dimensions
+  ierr = nf90_def_dim(file_id, 'X', i, xdim_id)
+  ierr = nf90_def_dim(file_id, 'Y', j, ydim_id)
+  ierr = nf90_def_dim(file_id, 'Z', k, zdim_id)
+
+  ! now that the dimensions are defined, we can define variables on them,...
+  arrdims = (/ xdim_id, ydim_id, zdim_id /)
+  ierr = nf90_def_var(file_id, 'Array',  NF90_REAL, arrdims, array_id)
+
+  ! ...and assign units to them as an attribute 
+  ierr = nf90_put_att(file_id, array_id, "units", arrunit)
+
+  ! done defining
+  ierr = nf90_enddef(file_id)
+
+  ! Write out the values
+  ierr = nf90_put_var(file_id, array_id, array)
+
+  ! close; done
+  ierr = nf90_close(file_id)
+end subroutine write_to_netcdf3d
+
+subroutine write_to_netcdf2d(array, file_name)
+  use netcdf
+  implicit none
+
+  real, intent(in), dimension(:,:) :: array
+  character(len=*), intent(in) :: file_name
+
+  integer :: file_id, xdim_id, ydim_id
+  integer :: array_id
+  integer, dimension(2) :: arrdims
+  character(len=*), parameter :: arrunit = 'ergs'
+
+  integer :: i, j
+  integer :: ierr
+
+  i = size(array,1)
+  j = size(array,2)
+
+  ! create the file
+  ierr = nf90_create(path=trim(file_name), cmode=NF90_CLOBBER, ncid=file_id)
+
+  ! define the dimensions
+  ierr = nf90_def_dim(file_id, 'X', i, xdim_id)
+  ierr = nf90_def_dim(file_id, 'Y', j, ydim_id)
+
+  ! now that the dimensions are defined, we can define variables on them,...
+  arrdims = (/ xdim_id, ydim_id /)
+  ierr = nf90_def_var(file_id, 'Array',  NF90_REAL, arrdims, array_id)
+
+  ! ...and assign units to them as an attribute 
+  ierr = nf90_put_att(file_id, array_id, "units", arrunit)
+
+  ! done defining
+  ierr = nf90_enddef(file_id)
+
+  ! Write out the values
+  ierr = nf90_put_var(file_id, array_id, array)
+
+  ! close; done
+  ierr = nf90_close(file_id)
+end subroutine write_to_netcdf2d
 
 end module MOM_checksums

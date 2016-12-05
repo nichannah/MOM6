@@ -20,7 +20,7 @@ use MOM_domains,           only : MOM_domains_init
 use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PAIR
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
-use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum
+use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum, rot90
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -385,6 +385,10 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call create_group_pass(CS%pass_av_uvh, uh(:,:,:), vh(:,:,:), G%Domain)
   call cpu_clock_end(id_clock_pass)
   !--- end set up for group halo pass
+
+  if (CS%debug) then
+    call MOM_state_chksum("Pre set_viscous_BBL", u, v, h, uh, vh, G, GV)
+  endif
 
   if (visc%calc_bbl) then
     ! Calculate the BBL properties and store them inside visc (u,h).
