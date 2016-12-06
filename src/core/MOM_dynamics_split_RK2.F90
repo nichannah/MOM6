@@ -20,7 +20,7 @@ use MOM_domains,           only : MOM_domains_init
 use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PAIR
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
-use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum, rot90
+use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -1021,7 +1021,7 @@ subroutine initialize_dyn_split_RK2(u, v, h, uh, vh, eta, Time, G, GV, param_fil
   type(verticalGrid_type),                   intent(in)    :: GV          !< ocean vertical grid structure
   real, dimension(SZIB_(G),SZJ_(G),SZK_(G)), intent(inout) :: u           !< zonal velocity (m/s)
   real, dimension(SZI_(G),SZJB_(G),SZK_(G)), intent(inout) :: v           !< merid velocity (m/s)
-  real, dimension(SZI_(G),SZJ_(G),SZK_(G)) , intent(inout) :: h           !< layer thickness (m or kg/m2)
+  real, dimension(SZI_(G),SZJ_(G),SZK_(G)) , intent(in) :: h           !< layer thickness (m or kg/m2)
   real, dimension(SZIB_(G),SZJ_(G),SZK_(G)), target, intent(inout) :: uh  !< zonal volume/mass transport (m3 s-1 or kg s-1)
   real, dimension(SZI_(G),SZJB_(G),SZK_(G)), target, intent(inout) :: vh  !< merid volume/mass transport (m3 s-1 or kg s-1)
   real, dimension(SZI_(G),SZJ_(G)),          intent(inout) :: eta         !< free surface height or column mass (m or kg m-2)

@@ -3,6 +3,8 @@ module MOM_PressureForce_AFV
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
+use MOM_checksums, only : hchksum, vchksum, uchksum
+use MOM_checksums, only : sym_trans_active, write_to_netcdf
 use MOM_diag_mediator, only : post_data, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, time_type
 use MOM_error_handler, only : MOM_error, FATAL, WARNING, is_root_pe
@@ -508,8 +510,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     !   Determine the surface height anomaly for calculating self attraction
     ! and loading.  This should really be based on bottom pressure anomalies,
     ! but that is not yet implemented, and the current form is correct for
-    ! barotropic tides.
-!$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
+    ! barotropic tides.  !$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
     do j=Jsq,Jeq+1
       do i=Isq,Ieq+1
         e(i,j,1) = -1.0*G%bathyT(i,j)
@@ -540,6 +541,27 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   enddo ; enddo ; enddo
 !$OMP end parallel
 
+  call hchksum(e, "PressureForce_AFV_Bouss eta", G%HI, haloshift=0)
+  call hchksum(h, "PressureForce_AFV_Bouss h", G%HI, haloshift=0)
+  if (sym_trans_active()) then
+    call write_to_netcdf(G%bathyT(:, :), 'bathyT_sym.nc')
+    call write_to_netcdf(e(:, :, :), 'e_sym.nc')
+    call write_to_netcdf(transpose(e(:, :, 1)), 'e_sym_top.nc')
+    call write_to_netcdf(h(:, :, :), 'h_sym.nc')
+    call write_to_netcdf(G%IdyCu(:, :), 'IdyCu_sym.nc')
+    call write_to_netcdf(G%IdyCv(:, :), 'IdyCv_sym.nc')
+    call write_to_netcdf(G%IdxCu(:, :), 'IdxCu_sym.nc')
+    call write_to_netcdf(G%IdxCv(:, :), 'IdxCv_sym.nc')
+  else
+    call write_to_netcdf(G%bathyT(:, :), 'bathyT.nc')
+    call write_to_netcdf(G%IdyCu(:, :), 'IdyCu.nc')
+    call write_to_netcdf(G%IdyCv(:, :), 'IdyCv.nc')
+    call write_to_netcdf(G%IdxCu(:, :), 'IdxCu.nc')
+    call write_to_netcdf(G%IdxCv(:, :), 'IdxCv.nc')
+    call write_to_netcdf(e(:, :, :), 'e.nc')
+    call write_to_netcdf(e(:, :, 1), 'e_top.nc')
+    call write_to_netcdf(h(:, :, :), 'h.nc')
+  endif
 
   if (use_EOS) then
 ! With a bulk mixed layer, replace the T & S of any layers that are
@@ -603,6 +625,8 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   endif
 !$OMP end parallel
 
+  call hchksum(dM, "PressureForce_AFV_Bouss dM", G%HI, haloshift=0)
+
 ! Have checked that rho_0 drops out and that the 1-layer case is right. RWH.
 
   ! If regridding is activated, do a linear reconstruction of salinity
@@ -617,6 +641,9 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     endif
   endif
 
+  call uchksum(PFu,"Before PressureForce PFu",G%HI,haloshift=0)
+  call vchksum(PFv,"Before PressureForce PFv",G%HI,haloshift=0)
+
 !$OMP parallel do default(none) shared(use_p_atm,rho_ref,G,GV,e,     &
 !$OMP                                  p_atm,nz,use_EOS,use_ALE,PRScheme,T_t,T_b,S_t, &
 !$OMP                                  S_b,CS,tv,tv_tmp,h,PFu,I_Rho0,h_neglect,PFv,dM)&
@@ -624,6 +651,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
 !$OMP                                  Jeq_bk,ioff_bk,joff_bk,pa_bk,  &
 !$OMP                                  intx_pa_bk,inty_pa_bk,dpa_bk,intz_dpa_bk,      &
 !$OMP                                  intx_dpa_bk,inty_dpa_bk,dz_bk,i,j)
+  print*, 'G%nblocks', G%nblocks
   do n = 1, G%nblocks
     is_bk=G%Block(n)%isc      ; ie_bk=G%Block(n)%iec
     js_bk=G%Block(n)%jsc      ; je_bk=G%Block(n)%jec
@@ -631,6 +659,12 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     Jsq_bk=G%Block(n)%JscB    ; Jeq_bk=G%Block(n)%JecB
     ioff_bk = G%Block(n)%idg_offset - G%HI%idg_offset
     joff_bk = G%Block(n)%jdg_offset - G%HI%jdg_offset
+
+    print*, 'ioff_bk, joff_bk: ', ioff_bk, joff_bk
+    print*, 'is_bk, js_bk: ', is_bk, js_bk
+    print*, 'ie_bk, je_bk: ', ie_bk, je_bk
+    print*, 'isq_bk, jsq_bk: ', isq_bk, jsq_bk
+    print*, 'ieq_bk, jeq_bk: ', ieq_bk, jeq_bk
 
     ! Set the surface boundary conditions on pressure anomaly and its horizontal
     ! integrals, assuming that the surface pressure anomaly varies linearly
@@ -652,6 +686,14 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     do Jb=Jsq_bk,Jeq_bk ; do ib=is_bk,ie_bk
       inty_pa_bk(ib,Jb) = 0.5*(pa_bk(ib,jb) + pa_bk(ib,jb+1))
     enddo ; enddo
+
+    if (k == 1) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(pa_bk(:, :), 'pa_bk_sym.nc')
+      else
+        call write_to_netcdf(pa_bk(:, :), 'pa_bk.nc')
+      endif
+    endif
 
     do k=1,nz
       ! Calculate 4 integrals through the layer that are required in the
@@ -700,6 +742,20 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
         enddo ; enddo
       endif
 
+      if (k == 1) then
+        if (sym_trans_active()) then
+          call write_to_netcdf(dz_bk(:, :), 'dz_bk_sym.nc')
+          call write_to_netcdf(intx_dpa_bk(:, :), 'intx_dpa_bk_sym.nc')
+          call write_to_netcdf(inty_dpa_bk(:, :), 'inty_dpa_bk_sym.nc')
+          call write_to_netcdf(intz_dpa_bk(:, :), 'intz_dpa_bk_sym.nc')
+        else
+          call write_to_netcdf(dz_bk(:, :), 'dz_bk.nc')
+          call write_to_netcdf(intx_dpa_bk(:, :), 'intx_dpa_bk.nc')
+          call write_to_netcdf(inty_dpa_bk(:, :), 'inty_dpa_bk.nc')
+          call write_to_netcdf(intz_dpa_bk(:, :), 'intz_dpa_bk.nc')
+        endif
+      endif
+
       ! Compute pressure gradient in x direction
       do jb=js_bk,je_bk ; do Ib=Isq_bk,Ieq_bk
         I = Ib+ioff_bk ; j = jb+joff_bk
@@ -725,7 +781,25 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       do jb=Jsq_bk,Jeq_bk+1 ; do ib=Isq_bk,Ieq_bk+1
         pa_bk(ib,jb) = pa_bk(ib,jb) + dpa_bk(ib,jb)
       enddo ; enddo
+
+      if (sym_trans_active()) then
+        call uchksum(PFv(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
+        call vchksum(PFu(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
+      else
+        call uchksum(PFu(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
+        call vchksum(PFv(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
+      endif
+      if (k == 1) then
+        if (sym_trans_active()) then
+          call write_to_netcdf(PFu(:, :, k), 'PFu_sym.nc')
+          call write_to_netcdf(PFv(:, :, k), 'PFv_sym.nc')
+        else
+          call write_to_netcdf(PFu(:, :, k), 'PFu.nc')
+          call write_to_netcdf(PFv(:, :, k), 'PFv.nc')
+        endif
+      endif
     enddo
+
 
     if (CS%GFS_scale < 1.0) then
       do k=1,nz
@@ -759,6 +833,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       enddo ; enddo
     endif
   endif
+
 
   if (CS%id_e_tidal>0) call post_data(CS%id_e_tidal, e_tidal, CS%diag)
 

@@ -24,13 +24,13 @@ use MOM_coms, only : PE_here, root_PE, num_PEs, sum_across_PEs
 use MOM_coms, only : min_across_PEs, max_across_PEs
 use MOM_coms, only : reproducing_sum
 use MOM_error_handler, only : MOM_error, FATAL, is_root_pe
-use MOM_file_parser, only : log_version, param_file_type
+use MOM_file_parser, only : log_version, get_param, param_file_type
 use MOM_hor_index, only : hor_index_type
 
 implicit none ; private
 
 public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: rot90, write_to_netcdf, swap_md
+public :: write_to_netcdf, swap_md, sym_trans, sym_trans_active
 public :: MOM_checksums_init
 
 interface hchksum
@@ -59,19 +59,19 @@ interface chksum
 end interface
 
 interface chk_sum_msg
-  module procedure chk_sum_msg1, chk_sum_msg2, chk_sum_msg3, chk_sum_msg5
+  module procedure chk_sum_msg1, chk_sum_msg2, chk_sum_msg3, chk_sum_msg4, chk_sum_msg5
 end interface
 
 interface is_NaN
   module procedure is_NaN_0d, is_NaN_1d, is_NaN_2d, is_NaN_3d
 end interface
 
-interface rot90
-  module procedure rot90_2d, rot90_3d
-end interface
-
 interface swap_md
   module procedure swap_2d, swap_3d
+end interface
+
+interface sym_trans
+  module procedure sym_trans_2d, sym_trans_3d
 end interface
 
 interface write_to_netcdf
@@ -84,6 +84,8 @@ logical :: calculateStatistics=.true. ! If true, report min, max and mean.
 logical :: writeChksums=.true. ! If true, report the bitcount checksum
 logical :: checkForNaNs=.true. ! If true, checks array for NaNs and cause
                                ! FATAL error is any are found
+logical :: sym_trans_is_configured = .false.
+logical :: sym_trans_is_active = .false.
 
 contains
 
@@ -133,12 +135,8 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -243,12 +241,8 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
   endif
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -340,12 +334,8 @@ subroutine chksum_u_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees anti-clockwise, rotate checksum
-    ! results clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSE,bcNE,bcSW,bcNW,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -437,12 +427,8 @@ subroutine chksum_v_2d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -535,12 +521,8 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("h-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -566,7 +548,21 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift)
     real, dimension(HI%isd:,HI%jsd:,:), intent(in) :: array
     character(len=*), intent(in) :: mesg
     integer :: i, j, k, n
-    real :: aMean, aMin, aMax
+    real :: aMean, aMin, aMax, hash
+
+    hash = 0.0
+    n = 1
+    if (sym_trans_active()) then
+      do k=LBOUND(array,3),UBOUND(array,3) ; do j=HI%jsc,HI%jec ; do i=HI%isc,HI%iec
+        hash = hash + array(j,i,k)*n
+        n = n + 1
+      enddo ; enddo ; enddo
+    else
+      do k=LBOUND(array,3),UBOUND(array,3) ; do j=HI%jsc,HI%jec ; do i=HI%isc,HI%iec
+        hash = hash + array(i,j,k)*n
+        n = n + 1
+      enddo ; enddo ; enddo
+    endif
 
     aMin = array(HI%isc,HI%jsc,1)
     aMax = array(HI%isc,HI%jsc,1)
@@ -581,7 +577,7 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift)
     call min_across_PEs(aMin)
     call max_across_PEs(aMax)
     aMean = aMean / real(n)
-    if (is_root_pe()) call chk_sum_msg("h-point:",aMean,aMin,aMax,mesg)
+    if (is_root_pe()) call chk_sum_msg("h-point:",aMean,aMin,aMax,hash,mesg)
   end subroutine subStats
 
 end subroutine chksum_h_3d
@@ -632,12 +628,8 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -729,12 +721,8 @@ subroutine chksum_u_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSE,bcNE,bcSW,bcNW,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("u-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -826,12 +814,8 @@ subroutine chksum_v_3d(array, mesg, HI, haloshift)
   bcNW=subchk(array, HI, -hshift, hshift)
   bcNE=subchk(array, HI, hshift, hshift)
 
-  if (HI%nrot90 == 1) then
-    ! Underlying array has been rotated 90 degrees clockwise, rotate checksum
-    ! results anti-clockwise so they match.
-    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNW,bcSW,bcNE,bcSE,mesg)
-  elseif (HI%nrot90 == 2) then
-    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcNE,bcNW,bcSE,bcSW,mesg)
+  if (sym_trans_active()) then
+    if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcNW,bcSE,bcNE,mesg)
   else
     if (is_root_pe()) call chk_sum_msg("v-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
   endif
@@ -1129,6 +1113,13 @@ subroutine chk_sum_msg3(fmsg,aMean,aMin,aMax,mesg)
      fmsg," mean=",aMean,"min=",aMin,"max=",aMax,trim(mesg)
 end subroutine chk_sum_msg3
 
+subroutine chk_sum_msg4(fmsg,aMean,aMin,aMax,hash,mesg)
+  character(len=*), intent(in) :: fmsg, mesg
+  real,             intent(in) :: aMean,aMin,aMax,hash
+  if (is_root_pe()) write(0,'(A,4(A,ES25.16,1X),A)') &
+     fmsg," mean=",aMean,"min=",aMin,"max=",aMax,"hash=",hash,trim(mesg)
+end subroutine chk_sum_msg4
+
 ! =====================================================================
 
 !> MOM_checksums_init initializes the MOM_checksums module. As it happens, the
@@ -1140,6 +1131,13 @@ subroutine MOM_checksums_init(param_file)
   character(len=40)  :: mod = "MOM_checksums" ! This module's name.
 
   call log_version(param_file, mod, version)
+
+  call get_param(param_file, mod, "APPLY_SYMMETRIC_INPUT_TRANSFORM", &
+                 sym_trans_is_configured, &
+                 "Whether or not to apply a symmetric transformation to all \n"//&
+                 "model inputs. This is a testing feature that can be \n"//&
+                 "used to help find horizontal indexing errors. \n", default=.false.)
+  sym_trans_is_active = .false.
 
 end subroutine MOM_checksums_init
 
@@ -1154,6 +1152,53 @@ subroutine chksum_error(signal, message)
 end subroutine chksum_error
 
 ! =====================================================================
+
+function sym_trans_active()
+    logical :: sym_trans_active
+
+    sym_trans_active = sym_trans_is_active
+
+end function sym_trans_active
+
+subroutine sym_trans_2d(array)
+  real, dimension(:,:), intent(inout) :: array !< The array to be transformed
+
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
+
+  sym_trans_is_active = .true.
+
+  if (size(array, 1) /= size(array, 2)) then
+    call MOM_error(FATAL, 'sym_trans_2d: transform requires a square domain.')
+  endif
+
+  ! Let's try straight transpose
+  array = transpose(array)
+
+end subroutine sym_trans_2d
+
+subroutine sym_trans_3d(array)
+  real, dimension(:,:,:), intent(inout) :: array !< The array to be transformed
+
+  integer :: k
+
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
+
+  sym_trans_is_active = .true.
+
+  if (size(array, 1) /= size(array, 2)) then
+    call MOM_error(FATAL, 'sym_trans_2d: transform requires a square domain.')
+  endif
+
+  do k=lbound(array, 3), ubound(array, 3)
+    array(:, :, k) = transpose(array(:, :, k))
+    array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
+  enddo
+
+end subroutine sym_trans_3d
 
 subroutine rot90_2d(array, nrot90)
   real, dimension(:,:), intent(inout) :: array !< The array to be rotated
@@ -1228,6 +1273,10 @@ subroutine swap_2d(arrayA, arrayB)
 
   real, allocatable, dimension(:,:) :: tmp
 
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
+
   if (size(arrayA, 1) /= size(arrayB, 1) .or. size(arrayA, 2) /= size(arrayB, 2)) then
     call MOM_error(FATAL, 'swap_2d: different shaped arrays cannot be swapped.')
   endif
@@ -1246,6 +1295,10 @@ subroutine swap_3d(arrayA, arrayB)
   real, intent(inout), dimension(:,:,:) :: arrayA, arrayB
 
   real, allocatable, dimension(:,:,:) :: tmp
+
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
 
   if (size(arrayA, 1) /= size(arrayB, 1) .or. &
           size(arrayA, 2) /= size(arrayB, 2) .or. &

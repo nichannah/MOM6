@@ -91,7 +91,8 @@ module MOM_barotropic
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, uchksum, vchksum, write_to_netcdf, rot90, swap_md
+use MOM_checksums, only : hchksum, uchksum, vchksum
+use MOM_checksums, only : write_to_netcdf, swap_md, sym_trans_active
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, enable_averaging
@@ -2794,11 +2795,6 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
 !$OMP parallel do default(none) shared(is,ie,js,je,nz,h_u,CS,h_neglect,h,use_default,G,GV) &
 !$OMP                          private(hatutot,Ihatutot,e_u,D_shallow_u,h_arith,h_harm,wt_arith)
 
-  if (G%nrot90 == 1) then
-    call swap_md(G%mask2dCu, G%mask2dCv) 
-    !call rot90(G%mask2dCv, 2)  
-  endif    
-
   do j=js-1,je+1
     if (present(h_u)) then
       do I=is-2,ie+1 ; hatutot(I) = h_u(i,j,1) ; enddo
@@ -2927,34 +2923,17 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
   enddo
 
   if (CS%debug) then
-    if (G%nrot90 == 1) then
-        call uchksum(CS%frhatv, "btcalc frhatu",G%HI,haloshift=1)
-        call vchksum(CS%frhatu, "btcalc frhatv",G%HI,haloshift=1)
+    if (sym_trans_active()) then
+      call uchksum(CS%frhatv, "btcalc frhatu",G%HI,haloshift=1)
+      call vchksum(CS%frhatu, "btcalc frhatv",G%HI,haloshift=1)
     else
-        call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1)
-        call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1)
+      call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1)
+      call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1)
     endif
     call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1)
   endif
- 
-  print*, 'shape(CS%frhatv) ', shape(CS%frhatv) 
-  if (G%nrot90 == 1) then
-      call write_to_netcdf(CS%frhatv(:, :, :), 'rot_frhatv.nc')
-      call write_to_netcdf(CS%frhatu(:, :, :), 'rot_frhatu.nc')
-      call write_to_netcdf(G%mask2dCv(:, :), 'rot_mask2dCv.nc')
-      call write_to_netcdf(G%mask2dCu(:, :), 'rot_mask2dCu.nc')
-      call write_to_netcdf(G%mask2dT(:, :), 'rot_mask2dT.nc')
-      call write_to_netcdf(h(:, :, :), 'rot_h.nc')
-  else
-      call write_to_netcdf(CS%frhatv(:, :, :), 'frhatv.nc')
-      call write_to_netcdf(CS%frhatu(:, :, :), 'frhatu.nc')
-      call write_to_netcdf(G%mask2dCv(:, :), 'mask2dCv.nc')
-      call write_to_netcdf(G%mask2dCu(:, :), 'mask2dCu.nc')
-      call write_to_netcdf(G%mask2dT(:, :), 'mask2dT.nc')
-      call write_to_netcdf(h(:, :, :), 'h.nc')
-  endif
 
-  stop 'xxx'
+  call write_to_netcdf(h(:, :, :), 'h_btcalc.nc')
 
 end subroutine btcalc
 

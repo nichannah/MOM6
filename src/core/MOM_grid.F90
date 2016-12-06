@@ -3,7 +3,8 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, rot90
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : swap_md, sym_trans
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
@@ -15,7 +16,7 @@ implicit none ; private
 #include <MOM_memory.h>
 
 public MOM_grid_init, MOM_grid_end, set_derived_metrics, set_first_direction
-public MOM_grid_rotate
+public MOM_grid_symmetric_transform
 public isPointInCell, hor_index_type
 
 !> Ocean grid type. See mom_grid for details.
@@ -60,7 +61,6 @@ type, public :: ocean_grid_type
   integer :: jdg_offset !< The offset between the corresponding global and local j-indices.
   integer :: ke         !< The number of layers in the vertical.
   logical :: symmetric  !< True if symmetric memory is used.
-  integer :: nrot90     !< Number of 90 degree rotations on grid (and other) fields 
   logical :: nonblocking_updates  !< If true, non-blocking halo updates are
                                   !! allowed.  The default is .false. (for now).
   integer :: first_direction !< An integer that indicates which direction is
@@ -228,7 +228,6 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
     G%idg_offset = HI%idg_offset ; G%jdg_offset = HI%jdg_offset
     G%isd_global = G%isd + HI%idg_offset ; G%jsd_global = G%jsd + HI%jdg_offset
     G%symmetric = HI%symmetric
-    G%nrot90 = HI%nrot90
   else
     local_indexing = .true.
     if (present(global_indexing)) local_indexing = .not.global_indexing
@@ -352,79 +351,78 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
 
 end subroutine MOM_grid_init
 
-subroutine MOM_grid_rotate(G, param_file)
+subroutine MOM_grid_symmetric_transform(G)
   type(ocean_grid_type), intent(inout) :: G          !< The horizontal grid type
-  type(param_file_type), intent(in)    :: param_file !< Parameter file handle
 
   character(len=40)  :: mod_nm  = "MOM_grid" ! This module's name.
 
-  call callTree_enter("MOM_grid_rotate(), MOM_grid.F90")
-
-  call get_param(param_file, mod_nm, "ROTATE_GRID_N90", G%nrot90, &
-                 "The number of 90 degree rotations to be performed on the \n"//&
-                 "grid and model inputs. This is a testing feature that can be \n"//&
-                 "used to rule out horizontal indexing errors. \n", default=0)
-  G%nrot90 = modulo(G%nrot90, 4)
-  G%HI%nrot90 = G%nrot90
-  print*, 'G%nrot90: ', G%nrot90
-  if (modulo(G%nrot90, 2) == 1 .and. G%symmetric) then
-    call MOM_error(FATAL, &
-          "MOM_grid_rotate: can't rotate 90 degrees with symmetric memory.")
-  endif
+  call callTree_enter("MOM_grid_symmetric_transform(), MOM_grid.F90")
 
   ! Rotate grid fields
-  call rot90(G%bathyT, G%nrot90)
+  call sym_trans(G%bathyT)
 
-  call rot90(G%CoriolisBu, G%nrot90)
-  call rot90(G%dF_dx, G%nrot90)
-  call rot90(G%dF_dy, G%nrot90)
+  call sym_trans(G%CoriolisBu)
+  call sym_trans(G%dF_dx)
+  call sym_trans(G%dF_dy)
 
-  call rot90(G%mask2dT, G%nrot90)
-  call rot90(G%mask2dBu, G%nrot90)
+  call sym_trans(G%mask2dT)
+  call sym_trans(G%mask2dBu)
 
-  call rot90(G%mask2dCu, G%nrot90)
-  call rot90(G%mask2dCv, G%nrot90)
+  call sym_trans(G%mask2dCu)
+  call sym_trans(G%mask2dCv)
 
-  call rot90(G%dxT, G%nrot90)
-  call rot90(G%dxCu, G%nrot90)
-  call rot90(G%dxCv, G%nrot90)
-  call rot90(G%dxBu, G%nrot90)
+  call sym_trans(G%dxT)
+  call sym_trans(G%dxCu)
+  call sym_trans(G%dxCv)
+  call sym_trans(G%dxBu)
 
-  call rot90(G%dyT, G%nrot90)
-  call rot90(G%dyCu, G%nrot90)
-  call rot90(G%dyCv, G%nrot90)
-  call rot90(G%dyBu, G%nrot90)
+  call sym_trans(G%dyT)
+  call sym_trans(G%dyCu)
+  call sym_trans(G%dyCv)
+  call sym_trans(G%dyBu)
 
-  call rot90(G%IdxT, G%nrot90)
-  call rot90(G%IdxCu, G%nrot90)
-  call rot90(G%IdxCv, G%nrot90)
-  call rot90(G%IdxBu, G%nrot90)
+  call sym_trans(G%IdxT)
+  call sym_trans(G%IdxCu)
+  call sym_trans(G%IdxCv)
+  call sym_trans(G%IdxBu)
 
-  call rot90(G%IdyT, G%nrot90)
-  call rot90(G%IdyCu, G%nrot90)
-  call rot90(G%IdyCv, G%nrot90)
-  call rot90(G%IdyBu, G%nrot90)
+  call sym_trans(G%IdyT)
+  call sym_trans(G%IdyCu)
+  call sym_trans(G%IdyCv)
+  call sym_trans(G%IdyBu)
 
-  call rot90(G%areaT, G%nrot90)
-  call rot90(G%areaBu, G%nrot90)
+  call sym_trans(G%areaT)
+  call sym_trans(G%areaBu)
 
-  call rot90(G%IareaT, G%nrot90)
-  call rot90(G%IareaBu, G%nrot90)
+  call sym_trans(G%IareaT)
+  call sym_trans(G%IareaBu)
 
-  call rot90(G%geoLonT, G%nrot90)
-  call rot90(G%geoLatT, G%nrot90)
-  call rot90(G%geoLonBu, G%nrot90)
-  call rot90(G%geoLatBu, G%nrot90)
-  call rot90(G%geoLonCu, G%nrot90)
-  call rot90(G%geoLatCu, G%nrot90)
-  call rot90(G%geoLonCv, G%nrot90)
-  call rot90(G%geoLatCv, G%nrot90)
+  call sym_trans(G%geoLonT)
+  call sym_trans(G%geoLatT)
+  call sym_trans(G%geoLonBu)
+  call sym_trans(G%geoLatBu)
+  call sym_trans(G%geoLonCu)
+  call sym_trans(G%geoLatCu)
+  call sym_trans(G%geoLonCv)
+  call sym_trans(G%geoLatCv)
 
   if (.true.) call MOM_grid_print_checksums(G)
 
-  call callTree_leave("MOM_grid_rotate(), MOM_grid.F90")
+  call swap_md(G%mask2dCu, G%mask2dCv)
+  call swap_md(G%dxCu, G%dyCv)
+  call swap_md(G%dxCv, G%dyCu)
 
-end subroutine MOM_grid_rotate
+  !call swap_md(G%dF_dx, G%dF_dy)
+
+  call swap_md(G%IdxCu, G%IdyCv)
+  call swap_md(G%IdxCv, G%IdyCu)
+
+  !call swap_md(G%geoLonCu, G%geoLonCv)
+  !call swap_md(G%geoLatCu, G%geoLatCv)
+
+  call callTree_leave("MOM_grid_symmetric_transform(), MOM_grid.F90")
+
+end subroutine MOM_grid_symmetric_transform
 
 subroutine MOM_grid_print_checksums(G)
   type(ocean_grid_type), intent(in) :: G          !< The horizontal grid type

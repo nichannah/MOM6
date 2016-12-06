@@ -50,17 +50,21 @@ subroutine PressureForce(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, pbce, eta)
 
   if (CS%Analytic_FV_PGF) then
     if (GV%Boussinesq) then
+      print*, 'PressureForce_AFV_Bouss'
       call PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS%PressureForce_AFV_CSp, &
                                    ALE_CSp, p_atm, pbce, eta)
     else
+      print*, 'PressureForce_AFV_nonBouss'
       call PressureForce_AFV_nonBouss(h, tv, PFu, PFv, G, GV, CS%PressureForce_AFV_CSp, &
                                       p_atm, pbce, eta)
     endif
   else
     if (GV%Boussinesq) then
+      print*, 'PressureForce_Mont_Bouss'
       call PressureForce_Mont_Bouss(h, tv, PFu, PFv, G, GV, CS%PressureForce_Mont_CSp, &
                                     p_atm, pbce, eta)
     else
+      print*, 'PressureForce_Mont_nonBouss'
       call PressureForce_Mont_nonBouss(h, tv, PFu, PFv, G, GV, CS%PressureForce_Mont_CSp, &
                                        p_atm, pbce, eta)
     endif

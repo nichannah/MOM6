@@ -65,6 +65,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
+use MOM_checksums,           only : swap_md, sym_trans_active
 use MOM_constants,           only : hlv, hlf
 use MOM_cpu_clock,           only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,           only : CLOCK_MODULE
@@ -496,6 +497,10 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   do J=Jsq,Jeq ; do i=is,ie
     fluxes%tauy(i,J) = 0.0
   enddo ; enddo
+
+  if (sym_trans_active()) then
+    call swap_md(fluxes%taux, fluxes%tauy)
+  endif
 
   call callTree_leave("wind_forcing_2gyre")
 end subroutine wind_forcing_2gyre
