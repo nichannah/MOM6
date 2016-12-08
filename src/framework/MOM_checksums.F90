@@ -49,6 +49,10 @@ interface vchksum
   module procedure chksum_v_2d, chksum_v_3d
 end interface
 
+interface uvchksum
+  module procedure chksum_uv_2d, chksum_uv_3d
+end interface
+
 ! This is an older interface that has been renamed Bchksum
 interface qchksum
   module procedure chksum_B_2d, chksum_B_3d
@@ -289,6 +293,82 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
 end subroutine chksum_B_2d
 
 ! =====================================================================
+
+!> chksum_uv_2d calls checksum subroutines for both u and v points.
+subroutine chksum_uv_2d(u_array, v_array, u_mesg, v_mesg, &
+                        HI, u_haloshift, v_haloshift)
+  real, dimension(:,:), intent(in) :: u_array !< The array to be checksummed
+  real, dimension(:,:), intent(in) :: v_array !< The array to be checksummed
+  character(len=*),                intent(in) :: u_mesg  !< An identifying message
+  character(len=*),                intent(in) :: v_mesg  !< An identifying message
+  type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
+  integer,               optional, intent(in) :: u_haloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: v_haloshift !< The width of halos to check (default 0)
+
+
+  if (sym_trans_is_configured) then
+    if (present(u_haloshift)) then
+      call chksum_u_2d(v_array, u_mesg, HI, u_haloshift)
+    else
+      call chksum_u_2d(v_array, u_mesg, HI)
+    endif
+    if (present(v_haloshift)) then
+      call chksum_v_2d(u_array, v_mesg, HI, v_haloshift)
+    else
+      call chksum_v_2d(u_array, v_mesg, HI)
+    endif
+  else
+    if (present(u_haloshift)) then
+      call chksum_u_2d(u_array, u_mesg, HI, u_haloshift)
+    else
+      call chksum_u_2d(u_array, u_mesg, HI)
+    endif
+    if (present(v_haloshift)) then
+      call chksum_v_2d(v_array, v_mesg, HI, v_haloshift)
+    else
+      call chksum_v_2d(v_array, v_mesg, HI)
+    endif
+  endif
+
+end subroutine chksum_uv_2d
+
+!> chksum_uv_3d calls checksum subroutines for both u and v points.
+subroutine chksum_uv_3d(u_array, v_array, u_mesg, v_mesg, &
+                        HI, u_haloshift, v_haloshift)
+  real, dimension(:,:,:), intent(in) :: u_array !< The array to be checksummed
+  real, dimension(:,:,:), intent(in) :: v_array !< The array to be checksummed
+  character(len=*),                intent(in) :: u_mesg  !< An identifying message
+  character(len=*),                intent(in) :: v_mesg  !< An identifying message
+  integer,               optional, intent(in) :: u_haloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: v_haloshift !< The width of halos to check (default 0)
+  type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
+
+
+  if (sym_trans_is_configured) then
+    if (present(u_haloshift)) then
+      call chksum_u_3d(v_array, u_mesg, HI, u_haloshift)
+    else
+      call chksum_u_3d(v_array, u_mesg, HI)
+    endif
+    if (present(v_haloshift)) then
+      call chksum_v_3d(u_array, v_mesg, HI, v_haloshift)
+    else
+      call chksum_v_3d(u_array, v_mesg, HI)
+    endif
+  else
+    if (present(u_haloshift)) then
+      call chksum_u_3d(u_array, u_mesg, HI, u_haloshift)
+    else
+      call chksum_u_3d(u_array, u_mesg, HI)
+    endif
+    if (present(v_haloshift)) then
+      call chksum_v_3d(v_array, v_mesg, HI, v_haloshift)
+    else
+      call chksum_v_3d(v_array, v_mesg, HI)
+    endif
+  endif
+
+end subroutine chksum_uv_3d
 
 !> chksum_u_2d performs checksums on a 2d array staggered at C-grid u points.
 subroutine chksum_u_2d(array, mesg, HI, haloshift)
