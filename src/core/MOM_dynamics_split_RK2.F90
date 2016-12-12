@@ -4,7 +4,8 @@ module MOM_dynamics_split_RK2
 ! This file is part of MOM6. See LICENSE.md for the license.
 
 use MOM_variables,    only : vertvisc_type, thermo_var_ptrs
-use MOM_variables,    only : BT_cont_type, alloc_bt_cont_type, dealloc_bt_cont_type
+use MOM_variables,    only : alloc_bt_cont_type, dealloc_bt_cont_type
+use MOM_variables,    only : BT_cont_type, MOM_BT_cont_chksum
 use MOM_variables,    only : accel_diag_ptrs, ocean_internal_state, cont_diag_ptrs
 use MOM_forcing_type, only : forcing
 
@@ -20,7 +21,7 @@ use MOM_domains,           only : MOM_domains_init
 use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PAIR
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
-use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum
+use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum, uvchksum
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -420,8 +421,9 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call PressureForce(h, tv, CS%PFu, CS%PFv, G, GV, CS%PressureForce_CSp, &
                      CS%ALE_CSp, p_surf, CS%pbce, CS%eta_PF)
   if (CS%debug) then
-    call uchksum(CS%PFu,"After PressureForce CS%PFu",G%HI,haloshift=0)
-    call vchksum(CS%PFv,"After PressureForce CS%PFv",G%HI,haloshift=0)
+    call uvchksum(CS%PFu, CS%PFv, &
+                  "After PressureForce CS%PFu", "After PressureForce CS%PFv", &
+                  G%HI, uhaloshift=0, vhaloshift=0)
   endif
 
   if (dyn_p_surf) then
@@ -548,7 +550,16 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
       call btcalc(h, G, GV, CS%barotropic_CSp, CS%BT_cont%h_u, CS%BT_cont%h_v)
     endif
     if (showCallTree) call callTree_wayPoint("done with continuity[BT_cont] (step_MOM_dyn_split_RK2)")
+    if (CS%debug) then
+      call uchksum(u, "After continuity u" , G%HI, haloshift=0)
+      call vchksum(v, "After continuity v" , G%HI, haloshift=0)
+      call hchksum(hp, "After continuity hp" , G%HI, haloshift=0)
+      call uchksum(uh_in, "After continuity uh_in" , G%HI, haloshift=0)
+      call vchksum(vh_in, "After continuity vh_in" , G%HI, haloshift=0)
+      call MOM_BT_cont_chksum(CS%BT_cont, "continuity", G)
+    endif
   endif
+
 
   if (CS%BT_use_layer_fluxes) then
     uh_ptr => uh_in; vh_ptr => vh_in; u_ptr => u; v_ptr => v

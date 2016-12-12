@@ -91,7 +91,7 @@ module MOM_barotropic
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, uchksum, vchksum
+use MOM_checksums, only : hchksum, uchksum, vchksum, uvchksum
 use MOM_checksums, only : write_to_netcdf, swap_md, sym_trans_active
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
@@ -816,6 +816,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
 ! barotropic momentum equations.  This has to be done quite early to start
 ! the halo update that needs to be completed before the next calculations.
   if (CS%linearized_BT_PV) then
+    print*, 'CS%linearized_BT_PV'
 !$OMP parallel default(none) shared(jsvf,jevf,isvf,ievf,q,CS,DCor_u,DCor_v)
 !$OMP do
     do J=jsvf-2,jevf+1 ; do I=isvf-2,ievf+1
@@ -995,6 +996,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
                                      Datu, Datv, BTCL_u, BTCL_v)
   endif
 
+
 !   Here the vertical average accelerations due to the Coriolis, advective,
 ! pressure gradient and horizontal viscous terms in the layer momentum
 ! equations are calculated.  These will be used to determine the difference
@@ -1023,6 +1025,16 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     ! ###   CS%dx_Cv(I,j) / (d(vhbt)/dv) (with appropriate bounds).
     BT_force_v(i,J) = fluxes%tauy(i,J) * I_rho0*CS%IDatv(i,J)*visc_rem_v(i,J,1)
   enddo ; enddo
+
+  call uchksum(BT_force_u, "0 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "0 BT_force_v", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(fluxes%taux, "fluxes%taux", CS%debug_BT_HI,haloshift=0)
+  call vchksum(fluxes%tauy, "fluxes%tauy", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(CS%IDatu, "CS%IDatu", CS%debug_BT_HI,haloshift=0)
+  call vchksum(CS%IDatv, "CS%IDatv", CS%debug_BT_HI,haloshift=0)
+
   if (present(taux_bot) .and. present(tauy_bot)) then
     if (associated(taux_bot) .and. associated(tauy_bot)) then
 !$OMP do
@@ -1033,8 +1045,14 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       do J=js-1,je ; do i=is,ie
         BT_force_v(i,J) = BT_force_v(i,J) - tauy_bot(i,J) * I_rho0 * CS%IDatv(i,J)
       enddo ; enddo
+
+      call uchksum(taux_bot, "taux_bot", CS%debug_BT_HI,haloshift=0)
+      call vchksum(tauy_bot, "tauy_bot", CS%debug_BT_HI,haloshift=0)
     endif
   endif
+
+    call uchksum(BT_force_u, "1 BT_force_u", CS%debug_BT_HI,haloshift=0)
+    call vchksum(BT_force_v, "1 BT_force_v", CS%debug_BT_HI,haloshift=0)
 
   ! bc_accel_u & bc_accel_v are only available on the potentially
   ! non-symmetric computational domain.
@@ -1215,6 +1233,18 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   enddo ; enddo
 
+  call uchksum(DCor_u, "DCor_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(DCor_v, "DCor_v", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(amer, "amer", CS%debug_BT_HI,haloshift=0)
+  call uchksum(bmer, "bmer", CS%debug_BT_HI,haloshift=0)
+  call uchksum(cmer, "cmer", CS%debug_BT_HI,haloshift=0)
+  call uchksum(dmer, "dmer", CS%debug_BT_HI,haloshift=0)
+  call vchksum(azon, "azon", CS%debug_BT_HI,haloshift=0)
+  call vchksum(bzon, "bzon", CS%debug_BT_HI,haloshift=0)
+  call vchksum(czon, "czon", CS%debug_BT_HI,haloshift=0)
+  call vchksum(dzon, "dzon", CS%debug_BT_HI,haloshift=0)
+
   !   If they are present, use u_Cor and v_Cor as the reference values for the
   ! Coriolis terms, including the viscous remnant if it is present.
 !$OMP do
@@ -1233,6 +1263,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       vbt_Cor(i,J) = vbt_Cor(i,J) + wt_v(i,J,k) * V_Cor(i,J,k)
     enddo ; enddo
   enddo
+
+  call uchksum(ubt_Cor, "ubt_Cor", CS%debug_BT_HI,haloshift=0)
+  call vchksum(vbt_Cor, "vbt_Cor", CS%debug_BT_HI,haloshift=0)
 
 !$OMP do
   do j=js,je ; do I=is-1,ie
@@ -1645,6 +1678,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     ! Recall that just outside the do n loop, there is code like...
     !  eta_PF_BT => eta_pred ; if (project_velocity) eta_PF_BT => eta
 
+    call uchksum(uhbt*GV%H_to_m, "A0 BT uhbt",CS%debug_BT_HI,haloshift=0)
+    call vchksum(vhbt*GV%H_to_m, "A0 BT vhbt",CS%debug_BT_HI,haloshift=0)
+
     if (find_etaav) then
 !GOMP do
       do j=js,je ; do i=is,ie
@@ -1711,6 +1747,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
 !GOMP                               vbt_prev,vhbt_prev,apply_u_OBCs,ubt_prev,uhbt_prev ) &
 !GOMP                       private(vel_prev)
     if (MOD(n+G%first_direction,2)==1) then
+      print*, 'Update v first: ', G%first_direction
       ! On odd-steps, update v first.
 !GOMP do
       do J=jsv-1,jev ; do i=isv-1,iev+1
@@ -1795,12 +1832,20 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
           ubt(I,j) = ubt_prev(I,j); uhbt(I,j) = uhbt_prev(I,j)
         endif ; enddo ; enddo
       endif
+
+      if (CS%debug_bt) then
+        call uvchksum(uhbt*GV%H_to_m, vhbt*GV%H_to_m, &
+                      "B0 BT uhbt just after OBC", "B0 BT vhbt just after OBC", &
+                      CS%debug_BT_HI, &
+                      uhaloshift=iev-ie, vhaloshift=iev-ie)
+      endif
     else
+      print*, 'Update u first: ', G%first_direction
       ! On even steps, update u first.
 !GOMP do
       do j=jsv-1,jev+1 ; do I=isv-1,iev
         Cor_u(I,j) = ((azon(I,j) * vbt(i+1,J) + czon(I,j) * vbt(i,J-1)) + &
-                      (bzon(I,j) * vbt(i,J) +  dzon(I,j) * vbt(i+1,J-1))) - &
+                      (bzon(I,j) * vbt(i,J) + dzon(I,j) * vbt(i+1,J-1))) - &
                      Cor_ref_u(I,j)
         PFu(I,j) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_E(i,j) - &
                      (eta_PF_BT(i+1,j)-eta_PF(i+1,j))*gtot_W(i+1,j)) * &
@@ -1883,6 +1928,14 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       endif
     endif
 !GOMP end parallel
+
+    if (CS%debug_bt) then
+      call uvchksum(uhbt*GV%H_to_m, vhbt*GV%H_to_m, &
+                    "B0 BT uhbt just after OBC", "B0 BT vhbt just after OBC", &
+                    CS%debug_BT_HI, &
+                    uhaloshift=iev-ie, vhaloshift=iev-ie)
+    endif
+
 
 !GOMP parallel default(none) shared(is,ie,js,je,find_PF,PFu_bt_sum,wt_accel2, &
 !GOMP                               PFu,PFv_bt_sum,PFv,find_Cor,Coru_bt_sum,  &
@@ -1967,8 +2020,10 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
 
     if (CS%debug_bt) then
-      call uchksum(uhbt*GV%H_to_m, "BT uhbt just after OBC",CS%debug_BT_HI,haloshift=iev-ie)
-      call vchksum(vhbt*GV%H_to_m, "BT vhbt just after OBC",CS%debug_BT_HI,haloshift=iev-ie)
+      call uvchksum(uhbt*GV%H_to_m, vhbt*GV%H_to_m, &
+                    "C0 BT uhbt just after OBC", "C0 BT vhbt just after OBC", &
+                    CS%debug_BT_HI, &
+                    uhaloshift=iev-ie, vhaloshift=iev-ie)
     endif
 
 !$OMP parallel do default(none) shared(isv,iev,jsv,jev,n,eta,eta_src,dtbt,CS,uhbt,vhbt,eta_wtd,wt_eta)
@@ -2182,6 +2237,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (find_etaav) call complete_group_pass(CS%pass_etaav, G%Domain)
     call complete_group_pass(CS%pass_ubta_uhbta, G%Domain)
   endif
+
+  stop 'xyxy'
 
   if (apply_OBCs) call destroy_BT_OBC(BT_OBC)
 

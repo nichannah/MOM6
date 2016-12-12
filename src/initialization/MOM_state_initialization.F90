@@ -369,12 +369,6 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
       h(:,:,:) = h(:,:,:)*GV%kg_m2_to_H
     endif
 
-  if (sym_trans_active()) then
-    call write_to_netcdf(h, 'h0a_sym.nc')
-  else
-    call write_to_netcdf(h, 'h0a.nc')
-  endif
-
 !  Remove the mass that would be displaced by an ice shelf or inverse barometer.
     call get_param(PF, mod, "DEPRESS_INITIAL_SURFACE", depress_sfc, &
                  "If true,  depress the initial surface to avoid huge \n"//&
@@ -478,12 +472,6 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
     call uchksum(G%mask2dCu, 'MOM_initialize_state: mask2dCu ', G%HI)
     call vchksum(G%mask2dCv, 'MOM_initialize_state: mask2dCv ', G%HI)
     call qchksum(G%mask2dBu, 'MOM_initialize_state: mask2dBu ', G%HI)
-  endif
-
-  if (sym_trans_active()) then
-    call write_to_netcdf(h, 'h0b_sym.nc')
-  else
-    call write_to_netcdf(h, 'h0b.nc')
   endif
 
   call callTree_leave('MOM_initialize_state()')

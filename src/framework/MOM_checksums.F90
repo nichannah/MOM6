@@ -30,7 +30,7 @@ use MOM_hor_index, only : hor_index_type
 implicit none ; private
 
 public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: write_to_netcdf, swap_md, sym_trans, sym_trans_active
+public :: write_to_netcdf, swap_md, sym_trans, sym_trans_active, uvchksum
 public :: MOM_checksums_init
 
 interface hchksum
@@ -296,35 +296,35 @@ end subroutine chksum_B_2d
 
 !> chksum_uv_2d calls checksum subroutines for both u and v points.
 subroutine chksum_uv_2d(u_array, v_array, u_mesg, v_mesg, &
-                        HI, u_haloshift, v_haloshift)
+                        HI, uhaloshift, vhaloshift)
   real, dimension(:,:), intent(in) :: u_array !< The array to be checksummed
   real, dimension(:,:), intent(in) :: v_array !< The array to be checksummed
   character(len=*),                intent(in) :: u_mesg  !< An identifying message
   character(len=*),                intent(in) :: v_mesg  !< An identifying message
   type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
-  integer,               optional, intent(in) :: u_haloshift !< The width of halos to check (default 0)
-  integer,               optional, intent(in) :: v_haloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: uhaloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: vhaloshift !< The width of halos to check (default 0)
 
 
-  if (sym_trans_is_configured) then
-    if (present(u_haloshift)) then
-      call chksum_u_2d(v_array, u_mesg, HI, u_haloshift)
+  if (sym_trans_active()) then
+    if (present(uhaloshift)) then
+      call chksum_u_2d(v_array, u_mesg, HI, uhaloshift)
     else
       call chksum_u_2d(v_array, u_mesg, HI)
     endif
-    if (present(v_haloshift)) then
-      call chksum_v_2d(u_array, v_mesg, HI, v_haloshift)
+    if (present(vhaloshift)) then
+      call chksum_v_2d(u_array, v_mesg, HI, vhaloshift)
     else
       call chksum_v_2d(u_array, v_mesg, HI)
     endif
   else
-    if (present(u_haloshift)) then
-      call chksum_u_2d(u_array, u_mesg, HI, u_haloshift)
+    if (present(uhaloshift)) then
+      call chksum_u_2d(u_array, u_mesg, HI, uhaloshift)
     else
       call chksum_u_2d(u_array, u_mesg, HI)
     endif
-    if (present(v_haloshift)) then
-      call chksum_v_2d(v_array, v_mesg, HI, v_haloshift)
+    if (present(vhaloshift)) then
+      call chksum_v_2d(v_array, v_mesg, HI, vhaloshift)
     else
       call chksum_v_2d(v_array, v_mesg, HI)
     endif
@@ -334,35 +334,35 @@ end subroutine chksum_uv_2d
 
 !> chksum_uv_3d calls checksum subroutines for both u and v points.
 subroutine chksum_uv_3d(u_array, v_array, u_mesg, v_mesg, &
-                        HI, u_haloshift, v_haloshift)
+                        HI, uhaloshift, vhaloshift)
   real, dimension(:,:,:), intent(in) :: u_array !< The array to be checksummed
   real, dimension(:,:,:), intent(in) :: v_array !< The array to be checksummed
   character(len=*),                intent(in) :: u_mesg  !< An identifying message
   character(len=*),                intent(in) :: v_mesg  !< An identifying message
-  integer,               optional, intent(in) :: u_haloshift !< The width of halos to check (default 0)
-  integer,               optional, intent(in) :: v_haloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: uhaloshift !< The width of halos to check (default 0)
+  integer,               optional, intent(in) :: vhaloshift !< The width of halos to check (default 0)
   type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
 
 
-  if (sym_trans_is_configured) then
-    if (present(u_haloshift)) then
-      call chksum_u_3d(v_array, u_mesg, HI, u_haloshift)
+  if (sym_trans_active()) then
+    if (present(uhaloshift)) then
+      call chksum_u_3d(v_array, u_mesg, HI, uhaloshift)
     else
       call chksum_u_3d(v_array, u_mesg, HI)
     endif
-    if (present(v_haloshift)) then
-      call chksum_v_3d(u_array, v_mesg, HI, v_haloshift)
+    if (present(vhaloshift)) then
+      call chksum_v_3d(u_array, v_mesg, HI, vhaloshift)
     else
       call chksum_v_3d(u_array, v_mesg, HI)
     endif
   else
-    if (present(u_haloshift)) then
-      call chksum_u_3d(u_array, u_mesg, HI, u_haloshift)
+    if (present(uhaloshift)) then
+      call chksum_u_3d(u_array, u_mesg, HI, uhaloshift)
     else
       call chksum_u_3d(u_array, u_mesg, HI)
     endif
-    if (present(v_haloshift)) then
-      call chksum_v_3d(v_array, v_mesg, HI, v_haloshift)
+    if (present(vhaloshift)) then
+      call chksum_v_3d(v_array, v_mesg, HI, vhaloshift)
     else
       call chksum_v_3d(v_array, v_mesg, HI)
     endif

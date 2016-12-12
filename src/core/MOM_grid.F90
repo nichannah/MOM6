@@ -4,7 +4,7 @@ module MOM_grid
 ! This file is part of MOM6. See LICENSE.md for the license.
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
-use MOM_checksums, only : swap_md, sym_trans
+use MOM_checksums, only : swap_md, sym_trans, sym_trans_active
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
@@ -358,7 +358,6 @@ subroutine MOM_grid_symmetric_transform(G)
 
   call callTree_enter("MOM_grid_symmetric_transform(), MOM_grid.F90")
 
-  ! Rotate grid fields
   call sym_trans(G%bathyT)
 
   call sym_trans(G%CoriolisBu)
@@ -366,59 +365,71 @@ subroutine MOM_grid_symmetric_transform(G)
   call sym_trans(G%dF_dy)
 
   call sym_trans(G%mask2dT)
-  call sym_trans(G%mask2dBu)
-
-  call sym_trans(G%mask2dCu)
-  call sym_trans(G%mask2dCv)
-
-  call sym_trans(G%dxT)
-  call sym_trans(G%dxCu)
-  call sym_trans(G%dxCv)
-  call sym_trans(G%dxBu)
-
-  call sym_trans(G%dyT)
-  call sym_trans(G%dyCu)
-  call sym_trans(G%dyCv)
-  call sym_trans(G%dyBu)
-
-  call sym_trans(G%IdxT)
-  call sym_trans(G%IdxCu)
-  call sym_trans(G%IdxCv)
-  call sym_trans(G%IdxBu)
-
-  call sym_trans(G%IdyT)
-  call sym_trans(G%IdyCu)
-  call sym_trans(G%IdyCv)
-  call sym_trans(G%IdyBu)
-
-  call sym_trans(G%areaT)
-  call sym_trans(G%areaBu)
-
-  call sym_trans(G%IareaT)
-  call sym_trans(G%IareaBu)
-
   call sym_trans(G%geoLonT)
   call sym_trans(G%geoLatT)
-  call sym_trans(G%geoLonBu)
-  call sym_trans(G%geoLatBu)
+  call sym_trans(G%dxT)
+  call sym_trans(G%IdxT)
+  call sym_trans(G%dyT)
+  call sym_trans(G%IdyT)
+  call sym_trans(G%areaT)
+  call sym_trans(G%IareaT)
+  call sym_trans(G%sin_rot)
+  call sym_trans(G%cos_rot)
+
+  call sym_trans(G%mask2dCu)
   call sym_trans(G%geoLonCu)
   call sym_trans(G%geoLatCu)
+  call sym_trans(G%dxCu)
+  call sym_trans(G%IdxCu)
+  call sym_trans(G%dyCu)
+  call sym_trans(G%IdyCu)
+  call sym_trans(G%dy_Cu)
+  call sym_trans(G%IareaCu)
+  call sym_trans(G%areaCu)
+
+  call sym_trans(G%mask2dCv)
   call sym_trans(G%geoLonCv)
   call sym_trans(G%geoLatCv)
+  call sym_trans(G%dxCv)
+  call sym_trans(G%IdxCv)
+  call sym_trans(G%dyCv)
+  call sym_trans(G%IdyCv)
+  call sym_trans(G%dx_Cv)
+  call sym_trans(G%IareaCv)
+  call sym_trans(G%areaCv)
+
+  call sym_trans(G%mask2dBu)
+  call sym_trans(G%geoLonBu)
+  call sym_trans(G%geoLatBu)
+  call sym_trans(G%dxBu)
+  call sym_trans(G%IdxBu)
+  call sym_trans(G%dyBu)
+  call sym_trans(G%IdyBu)
+  call sym_trans(G%areaBu)
+  call sym_trans(G%IareaBu)
+
+  call sym_trans(G%Dblock_u)
+  call sym_trans(G%Dopen_u)
+  call sym_trans(G%Dblock_v)
+  call sym_trans(G%Dopen_v)
 
   if (.true.) call MOM_grid_print_checksums(G)
 
   call swap_md(G%mask2dCu, G%mask2dCv)
+  call swap_md(G%geoLonCu, G%geoLonCv)
+  call swap_md(G%geoLatCu, G%geoLatCv)
   call swap_md(G%dxCu, G%dyCv)
-  call swap_md(G%dxCv, G%dyCu)
-
-  !call swap_md(G%dF_dx, G%dF_dy)
-
   call swap_md(G%IdxCu, G%IdyCv)
-  call swap_md(G%IdxCv, G%IdyCu)
+  call swap_md(G%dyCu, G%dxCv)
+  call swap_md(G%IdyCu, G%IdxCv)
+  call swap_md(G%dy_Cu, G%dx_Cv)
+  call swap_md(G%IareaCu, G%IareaCv)
+  call swap_md(G%areaCu, G%areaCv)
 
-  !call swap_md(G%geoLonCu, G%geoLonCv)
-  !call swap_md(G%geoLatCu, G%geoLatCv)
+  call swap_md(G%Dblock_u, G%Dblock_v)
+  call swap_md(G%Dopen_u, G%Dopen_v)
+
+  call swap_md(G%dF_dx, G%dF_dy)
 
   call callTree_leave("MOM_grid_symmetric_transform(), MOM_grid.F90")
 
@@ -567,7 +578,13 @@ subroutine set_first_direction(G, y_first)
   type(ocean_grid_type), intent(inout) :: G
   integer,               intent(in) :: y_first
 
-  G%first_direction = y_first
+  if (sym_trans_active()) then
+    G%first_direction = y_first + 1
+  else
+    G%first_direction = y_first
+  endif
+  print*, 'G%first_direction: ', G%first_direction
+
 end subroutine set_first_direction
 
 !> Allocate memory used by the ocean_grid_type and related structures.
