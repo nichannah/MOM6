@@ -415,6 +415,10 @@ subroutine MOM_grid_symmetric_transform(G)
 
   if (.true.) call MOM_grid_print_checksums(G)
 
+  call swap_md(G%dxT, G%dyT)
+  call swap_md(G%IdxT, G%IdyT)
+  !call swap_md(G%sin_rot, G%cos_rot)
+
   call swap_md(G%mask2dCu, G%mask2dCv)
   call swap_md(G%geoLonCu, G%geoLonCv)
   call swap_md(G%geoLatCu, G%geoLatCv)

@@ -365,45 +365,43 @@ subroutine MOM_BT_cont_chksum(BT_cont, mesg, G)
   if (associated(BT_cont%FA_u_EE)) then
     call uchksum(BT_cont%FA_u_EE, mesg//" BT_cont%FA_u_EE", G%HI)
   endif
-  if (associated(BT_cont%FA_u_E0)) then
-    call uchksum(BT_cont%FA_u_E0, mesg//" BT_cont%FA_u_E0", G%HI)
-  endif
-  if (associated(BT_cont%FA_u_W0)) then
-    call uchksum(BT_cont%FA_u_W0, mesg//" BT_cont%FA_u_W0", G%HI)
-  endif
-  if (associated(BT_cont%FA_u_WW)) then
-    call uchksum(BT_cont%FA_u_WW, mesg//" BT_cont%FA_u_WW", G%HI)
-  endif
-
-  if (associated(BT_cont%uBT_WW)) then
-    call uchksum(BT_cont%uBT_WW, mesg//" BT_cont%uBT_WW", G%HI)
-  endif
-  if (associated(BT_cont%uBT_EE)) then
-    call uchksum(BT_cont%uBT_EE, mesg//" BT_cont%uBT_EE", G%HI)
-  endif
-
   if (associated(BT_cont%FA_v_NN)) then
     call vchksum(BT_cont%FA_v_NN, mesg//" BT_cont%FA_v_NN", G%HI)
   endif
+
+  if (associated(BT_cont%FA_u_E0)) then
+    call uchksum(BT_cont%FA_u_E0, mesg//" BT_cont%FA_u_E0", G%HI)
+  endif
   if (associated(BT_cont%FA_v_N0)) then
     call vchksum(BT_cont%FA_v_N0, mesg//" BT_cont%FA_v_N0", G%HI)
+  endif
+
+  if (associated(BT_cont%FA_u_WW)) then
+    call uchksum(BT_cont%FA_u_WW, mesg//" BT_cont%FA_u_WW", G%HI)
+  endif
+  if (associated(BT_cont%FA_v_SS)) then
+    call vchksum(BT_cont%FA_v_SS, mesg//" BT_cont%FA_v_SS", G%HI)
+  endif
+
+  if (associated(BT_cont%FA_u_W0)) then
+    call uchksum(BT_cont%FA_u_W0, mesg//" BT_cont%FA_u_W0", G%HI)
   endif
   if (associated(BT_cont%FA_v_S0)) then
     call vchksum(BT_cont%FA_v_S0, mesg//" BT_cont%FA_v_S0", G%HI)
   endif
 
-  if (associated(BT_cont%FA_v_SS)) then
-    call vchksum(BT_cont%FA_v_SS, mesg//" BT_cont%FA_v_SS", G%HI)
+  if (associated(BT_cont%uBT_EE)) then
+    call uchksum(BT_cont%uBT_EE, mesg//" BT_cont%uBT_EE", G%HI)
   endif
   if (associated(BT_cont%vBT_NN)) then
     call vchksum(BT_cont%vBT_NN, mesg//" BT_cont%vBT_NN", G%HI)
   endif
 
+  if (associated(BT_cont%uBT_WW)) then
+    call uchksum(BT_cont%uBT_WW, mesg//" BT_cont%uBT_WW", G%HI)
+  endif
   if (associated(BT_cont%vBT_SS)) then
     call vchksum(BT_cont%vBT_SS, mesg//" BT_cont%vBT_SS", G%HI)
-  endif
-  if (associated(BT_cont%vBT_NN)) then
-    call vchksum(BT_cont%vBT_NN, mesg//" BT_cont%vBT_NN", G%HI)
   endif
 
   if (associated(BT_cont%h_u)) then

@@ -91,7 +91,7 @@ module MOM_barotropic
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, uchksum, vchksum, uvchksum
+use MOM_checksums, only : hchksum, uchksum, vchksum, uvchksum, bchksum
 use MOM_checksums, only : write_to_netcdf, swap_md, sym_trans_active
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
@@ -832,6 +832,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     enddo ; enddo
 !$OMP end parallel
   else
+    print*, 'not CS%linearized_BT_PV'
     q(:,:) = 0.0 ; DCor_u(:,:) = 0.0 ; DCor_v(:,:) = 0.0
     !  This option has not yet been written properly.
     !  ### bathyT here should be replaced with bathyT+eta(Bous) or eta(non-Bous).
@@ -1203,6 +1204,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       cmer(I,j+1) = DCor_u(I,j+1) * q(I,J)
       dmer(I-1,j+1) = DCor_u(I-1,j+1) * q(I-1,J)
     else
+      stop 'here'
       amer(I-1,j) = DCor_u(I-1,j) * &
                     ((q(I,J) + q(I-1,J-1)) + q(I-1,J)) / 3.0
       bmer(I,j) = DCor_u(I,j) * &
@@ -1214,14 +1216,24 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   enddo ; enddo
 
+  print*, 'jsvf, jevf: ', jsvf, jevf
+  print*, 'isvf, ievf: ', isvf, ievf
+  print*, 'lbound(amer, 1), ubound(amer, 1): ', lbound(amer, 1), ubound(amer, 1)
+  print*, 'lbound(amer, 2), ubound(amer, 2): ', lbound(amer, 2), ubound(amer, 2)
+  print*, 'lbound(azon, 1), ubound(azon, 1): ', lbound(azon, 1), ubound(azon, 1)
+  print*, 'lbound(azon, 2), ubound(azon, 2): ', lbound(azon, 2), ubound(azon, 2)
+  print*, 'shape(amer): ', shape(amer)
+  print*, 'shape(azon): ', shape(azon)
+
 !$OMP do
   do j=jsvf-1,jevf+1 ; do I=isvf-1,ievf
     if (CS%Sadourny) then
-      azon(I,j) = DCor_v(i+1,J) * q(I,J)
+      azon(I,j-1) = DCor_v(i,J-1) * q(I,J-1)
       bzon(I,j) = DCor_v(i,J) * q(I,J)
-      czon(I,j) = DCor_v(i,J-1) * q(I,J-1)
-      dzon(I,j) = DCor_v(i+1,J-1) * q(I,J-1)
+      czon(I+1,j) = DCor_v(i+1,J) * q(I,J)
+      dzon(I+1,j-1) = DCor_v(i+1,J-1) * q(I,J-1)
     else
+      stop 'here'
       azon(I,j) = DCor_v(i+1,J) * &
                   (q(I,J) + (q(I+1,J) + q(I,J-1))) / 3.0
       bzon(I,j) = DCor_v(i,J) * &
@@ -1233,16 +1245,21 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   enddo ; enddo
 
+  call Bchksum(q, "q", CS%debug_BT_HI,haloshift=0)
+
   call uchksum(DCor_u, "DCor_u", CS%debug_BT_HI,haloshift=0)
   call vchksum(DCor_v, "DCor_v", CS%debug_BT_HI,haloshift=0)
 
   call uchksum(amer, "amer", CS%debug_BT_HI,haloshift=0)
-  call uchksum(bmer, "bmer", CS%debug_BT_HI,haloshift=0)
-  call uchksum(cmer, "cmer", CS%debug_BT_HI,haloshift=0)
-  call uchksum(dmer, "dmer", CS%debug_BT_HI,haloshift=0)
   call vchksum(azon, "azon", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(bmer, "bmer", CS%debug_BT_HI,haloshift=0)
   call vchksum(bzon, "bzon", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(cmer, "cmer", CS%debug_BT_HI,haloshift=0)
   call vchksum(czon, "czon", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(dmer, "dmer", CS%debug_BT_HI,haloshift=0)
   call vchksum(dzon, "dzon", CS%debug_BT_HI,haloshift=0)
 
   !   If they are present, use u_Cor and v_Cor as the reference values for the
