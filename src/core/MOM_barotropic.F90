@@ -1036,8 +1036,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     BT_force_v(i,J) = fluxes%tauy(i,J) * I_rho0*CS%IDatv(i,J)*visc_rem_v(i,J,1)
   enddo ; enddo
 
-  call uchksum(BT_force_u, "0 BT_force_u", CS%debug_BT_HI,haloshift=0)
-  call vchksum(BT_force_v, "0 BT_force_v", CS%debug_BT_HI,haloshift=0)
+  call uchksum(BT_force_u, "A0 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "A0 BT_force_v", CS%debug_BT_HI,haloshift=0)
 
   call uchksum(fluxes%taux, "fluxes%taux", CS%debug_BT_HI,haloshift=0)
   call vchksum(fluxes%tauy, "fluxes%tauy", CS%debug_BT_HI,haloshift=0)
@@ -1061,6 +1061,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   endif
 
+  print*, 'BT_force_u, BT_force_v are changing.'
+
   ! bc_accel_u & bc_accel_v are only available on the potentially
   ! non-symmetric computational domain.
 !$OMP do
@@ -1069,12 +1071,22 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
        BT_force_u(I,j) = BT_force_u(I,j) + wt_u(I,j,k) * bc_accel_u(I,j,k)
     enddo ; enddo
   enddo
+
 !$OMP do
   do J=Jsq,Jeq
     do k=1,nz ; do i=is,ie
        BT_force_v(i,J) = BT_force_v(i,J) + wt_v(i,J,k) * bc_accel_v(i,J,k)
     enddo ; enddo
   enddo
+
+  call uchksum(bc_accel_u, "A1 bc_accel_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(bc_accel_v, "A1 bc_accel_v", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(wt_u, "A1 wt_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(wt_v, "A1 wt_v", CS%debug_BT_HI,haloshift=0)
+
+  call uchksum(BT_force_u, "A1 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "A1 BT_force_v", CS%debug_BT_HI,haloshift=0)
 
   ! Determine the difference between the sum of the layer fluxes and the
   ! barotropic fluxes found from the same input velocities.
@@ -1169,6 +1181,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     enddo ; enddo
   endif
 
+  call uchksum(BT_force_u, "A2 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "A2 BT_force_v", CS%debug_BT_HI,haloshift=0)
+
 !$OMP end parallel
   if ((Isq > is-1) .or. (Jsq > js-1)) then
     ! Non-symmetric memory is being used, so the edge values need to be
@@ -1196,6 +1211,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (id_clock_pass_pre > 0) call cpu_clock_end(id_clock_pass_pre)
     if (id_clock_calc_pre > 0) call cpu_clock_begin(id_clock_calc_pre)
   endif
+
+  call uchksum(BT_force_u, "A3 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "A3 BT_force_v", CS%debug_BT_HI,haloshift=0)
 
   ! These matter to valgrind
   amer(:, :) = 0.0
@@ -1334,6 +1352,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (CS%ua_polarity(i,j) < 0.0) call swap(gtot_E(i,j), gtot_W(i,j))
     if (CS%va_polarity(i,j) < 0.0) call swap(gtot_N(i,j), gtot_S(i,j))
   enddo ; enddo
+
+  call uchksum(BT_force_u, "A4 BT_force_u", CS%debug_BT_HI,haloshift=0)
+  call vchksum(BT_force_v, "A4 BT_force_v", CS%debug_BT_HI,haloshift=0)
 
   ! Now start new halo updates.
   if (nonblock_setup) then
@@ -2289,7 +2310,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     call complete_group_pass(CS%pass_ubta_uhbta, G%Domain)
   endif
 
-  stop 'xyxy'
 
   if (apply_OBCs) call destroy_BT_OBC(BT_OBC)
 
