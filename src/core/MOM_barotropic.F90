@@ -1328,7 +1328,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   enddo ; enddo
 !$OMP do
   do J=js-1,je ; do i=is,ie
-    Cor_ref_v(i,J) = &
+    Cor_ref_v(i,J) = -1.0 * &
         ((amer(I-1,j) * ubt_Cor(I-1,j) + cmer(I  ,j+1) * ubt_Cor(I  ,j+1)) + &
          (bmer(I  ,j) * ubt_Cor(I  ,j) + dmer(I-1,j+1) * ubt_Cor(I-1,j+1)))
   enddo ; enddo
@@ -1804,7 +1804,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! On odd-steps, update v first.
 !GOMP do
       do J=jsv-1,jev ; do i=isv-1,iev+1
-        Cor_v(i,J) = ((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = -1.0*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
         PFv(i,J) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_N(i,j) - &
@@ -1937,7 +1937,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! Now update the meridional velocity.
 !GOMP do
       do J=jsv-1,jev ; do i=isv,iev
-        Cor_v(i,J) = ((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = -1.0*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                 (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
 
