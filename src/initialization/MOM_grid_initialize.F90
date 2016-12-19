@@ -67,7 +67,7 @@ module MOM_grid_initialize
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
-use MOM_checksums, only : sym_trans, sym_trans_active
+use MOM_checksums, only : sym_trans, sym_trans_active, swap_md
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -767,6 +767,7 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyCu(I,j) = G%Rad_Earth * dLat*PI_180
   enddo; enddo
 
+
   do j=jsd,jed ; do i=isd,ied
     G%geoLonT(i,j) = grid_LonT(i)
     G%geoLatT(i,j) = grid_LatT(j)
@@ -782,6 +783,37 @@ subroutine set_grid_metrics_spherical(G, param_file)
 !   G%areaT(i,j) = Rad_Earth**2*dLon*dLat*ABS(SIN(latitude)-SIN(dL_di))
     G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
   enddo; enddo
+
+  if (sym_trans_active()) then
+      call sym_trans(G%dxBu)
+      call sym_trans(G%dyBu)
+      call sym_trans(G%areaBu)
+
+      call sym_trans(G%dxCv)
+      call sym_trans(G%dyCv)
+      call sym_trans(G%dxCu)
+      call sym_trans(G%dyCu)
+
+      call sym_trans(G%dxT)
+      call sym_trans(G%dyT)
+      call sym_trans(G%areaT)
+
+      call swap_md(G%dxBu, G%dyBu)
+      call swap_md(G%dxCu, G%dyCv)
+      call swap_md(G%dxCv, G%dyCu)
+      call swap_md(G%dxT, G%dyT)
+
+      !call sym_trans(G%geoLonBu)
+      !call sym_trans(G%geoLatBu)
+
+      !call sym_trans(G%geoLonCv)
+      !call sym_trans(G%geoLatCv)
+      !call sym_trans(G%geoLonCu)
+      !call sym_trans(G%geoLatCu)
+
+      !call sym_trans(G%geoLonT)
+      !call sym_trans(G%geoLatT)
+  endif
 
   call callTree_leave("set_grid_metrics_spherical()")
 end subroutine set_grid_metrics_spherical

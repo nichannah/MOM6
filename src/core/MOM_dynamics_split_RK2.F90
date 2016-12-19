@@ -540,6 +540,8 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     call vchksum(vp,"before set_viscous_ML: vp",G%HI,haloshift=0)
   endif
 
+  stop 'xxx'
+
   call enable_averaging(dt, Time_local, CS%diag)
   call set_viscous_ML(u, v, h, tv, fluxes, visc, dt, G, GV, &
                       CS%set_visc_CSp)
