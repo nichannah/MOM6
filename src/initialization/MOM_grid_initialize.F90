@@ -67,6 +67,7 @@ module MOM_grid_initialize
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : sym_trans, sym_trans_active
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -1361,6 +1362,10 @@ subroutine initialize_masks(G, PF)
   if (mask_depth>=0.) Dmin = mask_depth
 
   G%mask2dCu(:,:) = 0.0 ; G%mask2dCv(:,:) = 0.0 ; G%mask2dBu(:,:) = 0.0
+
+  if (sym_trans_active()) then
+      call sym_trans(G%bathyT)
+  endif
 
   ! Construct the h-point or T-point mask
   do j=G%jsd,G%jed ; do i=G%isd,G%ied

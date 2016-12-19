@@ -1061,8 +1061,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   endif
 
-  print*, 'BT_force_u, BT_force_v are changing.'
-
   ! bc_accel_u & bc_accel_v are only available on the potentially
   ! non-symmetric computational domain.
 !$OMP do
@@ -1078,6 +1076,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
        BT_force_v(i,J) = BT_force_v(i,J) + wt_v(i,J,k) * bc_accel_v(i,J,k)
     enddo ; enddo
   enddo
+
+  print*, 'bc_accel_u, bc_accel_v are changing.'
 
   call uchksum(bc_accel_u, "A1 bc_accel_u", CS%debug_BT_HI,haloshift=0)
   call vchksum(bc_accel_v, "A1 bc_accel_v", CS%debug_BT_HI,haloshift=0)

@@ -1236,7 +1236,7 @@ end subroutine chksum_error
 function sym_trans_active()
     logical :: sym_trans_active
 
-    sym_trans_active = sym_trans_is_active
+    sym_trans_active = sym_trans_is_configured
 
 end function sym_trans_active
 
@@ -1254,7 +1254,10 @@ subroutine sym_trans_2d(array)
   endif
 
   ! Let's try straight transpose
-  array = transpose(array)
+  ! array = transpose(array)
+
+  ! Try a 90 degree rotation
+  call rot90_2d(array, 1)
 
 end subroutine sym_trans_2d
 
@@ -1273,10 +1276,13 @@ subroutine sym_trans_3d(array)
     call MOM_error(FATAL, 'sym_trans_2d: transform requires a square domain.')
   endif
 
-  do k=lbound(array, 3), ubound(array, 3)
-    array(:, :, k) = transpose(array(:, :, k))
-    array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
-  enddo
+  ! Try a 90 degree rotation
+  call rot90_3d(array, 1)
+
+  !do k=lbound(array, 3), ubound(array, 3)
+  !  array(:, :, k) = transpose(array(:, :, k))
+  !  array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
+  !enddo
 
 end subroutine sym_trans_3d
 

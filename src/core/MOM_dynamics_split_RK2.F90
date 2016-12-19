@@ -22,6 +22,7 @@ use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PA
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
 use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum, uvchksum
+use MOM_checksums,         only : write_to_netcdf, sym_trans_active
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -455,6 +456,11 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call cpu_clock_end(id_clock_Cor)
   if (showCallTree) call callTree_wayPoint("done with CorAdCalc (step_MOM_dyn_split_RK2)")
 
+  if (CS%debug) then
+    call uchksum(CS%Cau, '0: After CorAdCalc: CAu', G%HI, haloshift=1)
+    call vchksum(CS%Cav, '0: After CorAdCalc: CAv', G%HI, haloshift=1)
+  endif
+
 ! u_bc_accel = CAu + PFu + diffu(u[n-1])
   call cpu_clock_begin(id_clock_btforce)
 !$OMP parallel do default(none) shared(is,ie,js,je,Isq,Ieq,Jsq,Jeq,nz,u_bc_accel,v_bc_accel,CS)
@@ -467,6 +473,18 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     enddo ; enddo
   enddo
   call cpu_clock_end(id_clock_btforce)
+
+  if (CS%debug) then
+    call uchksum(CS%diffu, '0: After horizontal_viscosity: diffu', G%HI, haloshift=1)
+    call vchksum(CS%diffv, '0: After horizontal_viscosity: diffv', G%HI, haloshift=1)
+  endif
+
+  if (CS%debug) then
+    call uchksum(u_bc_accel, '0: After horizontal_viscosity: u_bc_accel', G%HI, haloshift=1)
+    call vchksum(v_bc_accel, '0: After horizontal_viscosity: v_bc_accel', G%HI, haloshift=1)
+  endif
+
+
 
   if (CS%debug) then
     call check_redundant("pre-btstep CS%Ca ", CS%Cau, CS%Cav, G)
@@ -499,15 +517,34 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     enddo ; enddo
   enddo
 
+  if (sym_trans_active()) then
+    call write_to_netcdf(G%mask2dCu, 'sym_mask2dCu.nc')
+    call write_to_netcdf(G%mask2dCv, 'sym_mask2dCv.nc')
+    call write_to_netcdf(vp, 'sym_vp.nc')
+    call write_to_netcdf(up, 'sym_up.nc')
+  else
+    call write_to_netcdf(G%mask2dCu, 'mask2dCu.nc')
+    call write_to_netcdf(G%mask2dCv, 'mask2dCv.nc')
+    call write_to_netcdf(vp, 'vp.nc')
+    call write_to_netcdf(up, 'up.nc')
+  endif
+
+  if (CS%debug) then
+    call uchksum(G%mask2dCu,"before set_viscous_ML: mask2dCu",G%HI,haloshift=0)
+    call vchksum(G%mask2dCv,"before set_viscous_ML: mask2dCv",G%HI,haloshift=0)
+    call uchksum(u_bc_accel,"before set_viscous_ML: u_bc_accel",G%HI,haloshift=0)
+    call vchksum(v_bc_accel,"before set_viscous_ML: v_bc_accel",G%HI,haloshift=0)
+    call uchksum(u,"before set_viscous_ML: u",G%HI,haloshift=0)
+    call vchksum(v,"before set_viscous_ML: v",G%HI,haloshift=0)
+    call uchksum(up,"before set_viscous_ML: up",G%HI,haloshift=0)
+    call vchksum(vp,"before set_viscous_ML: vp",G%HI,haloshift=0)
+  endif
+
   call enable_averaging(dt, Time_local, CS%diag)
   call set_viscous_ML(u, v, h, tv, fluxes, visc, dt, G, GV, &
                       CS%set_visc_CSp)
   call disable_averaging(CS%diag)
 
-  if (CS%debug) then
-    call uchksum(up,"before vertvisc: up",G%HI,haloshift=0)
-    call vchksum(vp,"before vertvisc: vp",G%HI,haloshift=0)
-  endif
   call vertvisc_coef(up, vp, h, fluxes, visc, dt, G, GV, CS%vertvisc_CSp)
   call vertvisc_remnant(visc, CS%visc_rem_u, CS%visc_rem_v, dt, G, GV, CS%vertvisc_CSp)
   call cpu_clock_end(id_clock_vertvisc)
@@ -736,6 +773,12 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call cpu_clock_end(id_clock_horvisc)
   if (showCallTree) call callTree_wayPoint("done with horizontal_viscosity (step_MOM_dyn_split_RK2)")
 
+  if (CS%debug) then
+    call uchksum(CS%diffu, 'After horizontal_viscosity: diffu', G%HI, haloshift=1)
+    call vchksum(CS%diffv, 'After horizontal_viscosity: diffv', G%HI, haloshift=1)
+  endif
+
+
 ! CAu = -(f+zeta_av)/h_av vh + d/dx KE_av
   call cpu_clock_begin(id_clock_Cor)
   call CorAdCalc(u_av, v_av, h_av, uh, vh, CS%CAu, CS%CAv, CS%OBC, CS%ADp, &
@@ -744,6 +787,11 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   if (showCallTree) call callTree_wayPoint("done with CorAdCalc (step_MOM_dyn_split_RK2)")
 
 ! Calculate the momentum forcing terms for the barotropic equations.
+
+  if (CS%debug) then
+    call uchksum(CS%Cau, 'After CorAdCalc: CAu', G%HI, haloshift=1)
+    call vchksum(CS%Cav, 'After CorAdCalc: CAv', G%HI, haloshift=1)
+  endif
 
 ! u_bc_accel = CAu + PFu + diffu(u[n-1])
   call cpu_clock_begin(id_clock_btforce)
