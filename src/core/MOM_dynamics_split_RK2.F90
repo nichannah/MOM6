@@ -520,11 +520,13 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   if (sym_trans_active()) then
     call write_to_netcdf(G%mask2dCu, 'sym_mask2dCu.nc')
     call write_to_netcdf(G%mask2dCv, 'sym_mask2dCv.nc')
+    call write_to_netcdf(G%bathyT, 'sym_bathyT.nc')
     call write_to_netcdf(vp, 'sym_vp.nc')
     call write_to_netcdf(up, 'sym_up.nc')
   else
     call write_to_netcdf(G%mask2dCu, 'mask2dCu.nc')
     call write_to_netcdf(G%mask2dCv, 'mask2dCv.nc')
+    call write_to_netcdf(G%bathyT, 'bathyT.nc')
     call write_to_netcdf(vp, 'vp.nc')
     call write_to_netcdf(up, 'up.nc')
   endif
@@ -998,6 +1000,7 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   endif
 
   if (showCallTree) call callTree_leave("step_MOM_dyn_split_RK2()")
+
 
 end subroutine step_MOM_dyn_split_RK2
 

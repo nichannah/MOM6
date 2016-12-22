@@ -66,7 +66,7 @@ module MOM_grid_initialize
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, write_to_netcdf
 use MOM_checksums, only : sym_trans, sym_trans_active, swap_md
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
@@ -803,16 +803,16 @@ subroutine set_grid_metrics_spherical(G, param_file)
       call swap_md(G%dxCv, G%dyCu)
       call swap_md(G%dxT, G%dyT)
 
-      !call sym_trans(G%geoLonBu)
-      !call sym_trans(G%geoLatBu)
+      call sym_trans(G%geoLonBu)
+      call sym_trans(G%geoLatBu)
 
-      !call sym_trans(G%geoLonCv)
-      !call sym_trans(G%geoLatCv)
-      !call sym_trans(G%geoLonCu)
-      !call sym_trans(G%geoLatCu)
+      call sym_trans(G%geoLonCv)
+      call sym_trans(G%geoLatCv)
+      call sym_trans(G%geoLonCu)
+      call sym_trans(G%geoLatCu)
 
-      !call sym_trans(G%geoLonT)
-      !call sym_trans(G%geoLatT)
+      call sym_trans(G%geoLonT)
+      call sym_trans(G%geoLatT)
   endif
 
   call callTree_leave("set_grid_metrics_spherical()")
@@ -1394,10 +1394,6 @@ subroutine initialize_masks(G, PF)
   if (mask_depth>=0.) Dmin = mask_depth
 
   G%mask2dCu(:,:) = 0.0 ; G%mask2dCv(:,:) = 0.0 ; G%mask2dBu(:,:) = 0.0
-
-  if (sym_trans_active()) then
-      call sym_trans(G%bathyT)
-  endif
 
   ! Construct the h-point or T-point mask
   do j=G%jsd,G%jed ; do i=G%isd,G%ied
