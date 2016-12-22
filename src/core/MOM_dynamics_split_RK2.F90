@@ -542,7 +542,6 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     call vchksum(vp,"before set_viscous_ML: vp",G%HI,haloshift=0)
   endif
 
-  stop 'xxx'
 
   call enable_averaging(dt, Time_local, CS%diag)
   call set_viscous_ML(u, v, h, tv, fluxes, visc, dt, G, GV, &
@@ -600,7 +599,6 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
       call MOM_BT_cont_chksum(CS%BT_cont, "continuity", G)
     endif
   endif
-
 
   if (CS%BT_use_layer_fluxes) then
     uh_ptr => uh_in; vh_ptr => vh_in; u_ptr => u; v_ptr => v
@@ -1000,7 +998,6 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   endif
 
   if (showCallTree) call callTree_leave("step_MOM_dyn_split_RK2()")
-
 
 end subroutine step_MOM_dyn_split_RK2
 

@@ -676,6 +676,17 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   integer :: isd, ied, jsd, jed, IsdB, IedB, JsdB, JedB
   integer :: ioff, joff
 
+  real :: u_cor_sign, v_cor_sign ! The sign of the Coriolis acceleration
+
+  u_cor_sign = 1.0
+  v_cor_sign = -1.0
+
+  if (sym_trans_active()) then
+      u_cor_sign = -1.0
+      v_cor_sign = 1.0
+  endif
+
+
   if (.not.associated(CS)) call MOM_error(FATAL, &
       "btstep: Module MOM_barotropic must be initialized before it is used.")
   if (.not.CS%split) return
@@ -857,6 +868,14 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     enddo ; enddo
 !$OMP end parallel
 
+    if (sym_trans_active()) then
+        call write_to_netcdf(q, 'sym_q.nc')
+        call write_to_netcdf(G%CoriolisBu, 'sym_coriolis.nc')
+    else
+        call write_to_netcdf(q, 'q.nc')
+        call write_to_netcdf(G%CoriolisBu, 'coriolis.nc')
+    endif 
+
     ! With very wide halos, q and D need to be calculated on the available data
     ! domain and then updated onto the full computational domain.
     ! These calculations can be done almost immediately, but the halo updates
@@ -970,6 +989,11 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       gtot_S(i,j+1) = gtot_S(i,j+1) + pbce(i,j+1,k) * wt_v(i,J,k)
     enddo ; enddo
   enddo
+
+  call uchksum(gtot_E, "gtot_E", CS%debug_BT_HI,haloshift=0)
+  call uchksum(gtot_W, "gtot_W", CS%debug_BT_HI,haloshift=0)
+  call vchksum(gtot_N, "gtot_N", CS%debug_BT_HI,haloshift=0)
+  call vchksum(gtot_S, "gtot_S", CS%debug_BT_HI,haloshift=0)
 
 !$OMP end parallel
 
@@ -1322,13 +1346,13 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
 
 !$OMP do
   do j=js,je ; do I=is-1,ie
-    Cor_ref_u(I,j) =  &
+    Cor_ref_u(I,j) =  u_cor_sign * &
         ((azon(I,j-1) * vbt_Cor(i,j-1) + czon(I+1,j) * vbt_Cor(i+1,j)) + &
          (bzon(I,j) * vbt_Cor(i  ,j) + dzon(I+1,j-1) * vbt_Cor(i+1,j-1)))
   enddo ; enddo
 !$OMP do
   do J=js-1,je ; do i=is,ie
-    Cor_ref_v(i,J) = -1.0 * &
+    Cor_ref_v(i,J) = v_cor_sign * &
         ((amer(I-1,j) * ubt_Cor(I-1,j) + cmer(I  ,j+1) * ubt_Cor(I  ,j+1)) + &
          (bmer(I  ,j) * ubt_Cor(I  ,j) + dmer(I-1,j+1) * ubt_Cor(I-1,j+1)))
   enddo ; enddo
@@ -1804,7 +1828,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! On odd-steps, update v first.
 !GOMP do
       do J=jsv-1,jev ; do i=isv-1,iev+1
-        Cor_v(i,J) = -1.0*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = v_cor_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
         PFv(i,J) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_N(i,j) - &
@@ -1847,7 +1871,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! Now update the zonal velocity.
 !GOMP do
       do j=jsv,jev ; do I=isv-1,iev
-        Cor_u(I,j) = ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
+        Cor_u(I,j) = u_cor_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
                       (bzon(I,j) * vbt(i,J) + dzon(I+1,j-1) * vbt(i+1,J-1))) - &
                      Cor_ref_u(I,j)
 
@@ -1893,7 +1917,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! On even steps, update u first.
 !GOMP do
       do j=jsv-1,jev+1 ; do I=isv-1,iev
-        Cor_u(I,j) = ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
+        Cor_u(I,j) = u_cor_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
                       (bzon(I,j) * vbt(i,J) + dzon(I+1,j-1) * vbt(i+1,J-1))) - &
                      Cor_ref_u(I,j)
         PFu(I,j) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_E(i,j) - &
@@ -1937,7 +1961,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! Now update the meridional velocity.
 !GOMP do
       do J=jsv-1,jev ; do i=isv,iev
-        Cor_v(i,J) = -1.0*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = v_cor_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                 (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
 
@@ -1981,31 +2005,17 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
 !GOMP end parallel
 
     if (CS%debug_bt) then
-      call uvchksum(Cor_u, Cor_v, &
-                    "BT Cor_u just after OBC", "BT Cor_v just after OBC", &
-                    CS%debug_BT_HI, &
-                    uhaloshift=iev-ie, vhaloshift=iev-ie)
-    endif
+      call uchksum(Cor_u, "BT Cor_u just after OBC",G%HI,haloshift=1)
+      call vchksum(Cor_v, "BT Cor_v just after OBC",G%HI,haloshift=1)
 
-    if (CS%debug_bt) then
-      call uvchksum(ubt, vbt, &
-                    "BT ubt just after OBC", "BT vbt just after OBC", &
-                    CS%debug_BT_HI, &
-                    uhaloshift=iev-ie, vhaloshift=iev-ie)
-    endif
+      call uchksum(ubt, "BT ubt just after OBC",G%HI,haloshift=1)
+      call vchksum(vbt, "BT vbt just after OBC",G%HI,haloshift=1)
 
-    if (CS%debug_bt) then
-      call uvchksum(PFu, PFv, &
-                    "BT PFu just after OBC", "BT PFv just after OBC", &
-                    CS%debug_BT_HI, &
-                    uhaloshift=iev-ie, vhaloshift=iev-ie)
-    endif
+      call uchksum(PFu, "BT PFu just after OBC",G%HI,haloshift=1)
+      call vchksum(PFv, "BT PFv just after OBC",G%HI,haloshift=1)
 
-    if (CS%debug_bt) then
-      call uvchksum(uhbt*GV%H_to_m, vhbt*GV%H_to_m, &
-                    "BT uhbt just after OBC", "BT vhbt just after OBC", &
-                    CS%debug_BT_HI, &
-                    uhaloshift=iev-ie, vhaloshift=iev-ie)
+      call uchksum(uhbt, "BT uhbt just after OBC",G%HI,haloshift=1)
+      call vchksum(vhbt, "BT uhvt just after OBC",G%HI,haloshift=1)
     endif
 
 

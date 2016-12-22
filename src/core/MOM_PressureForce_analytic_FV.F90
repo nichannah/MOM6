@@ -782,13 +782,9 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
         pa_bk(ib,jb) = pa_bk(ib,jb) + dpa_bk(ib,jb)
       enddo ; enddo
 
-      if (sym_trans_active()) then
-        call uchksum(PFv(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
-        call vchksum(PFu(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
-      else
-        call uchksum(PFu(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
-        call vchksum(PFv(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
-      endif
+      call uchksum(PFu(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
+      call vchksum(PFv(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
+
       if (k == 1) then
         if (sym_trans_active()) then
           call write_to_netcdf(PFu(:, :, k), 'PFu_sym.nc')
