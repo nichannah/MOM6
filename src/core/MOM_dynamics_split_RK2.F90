@@ -22,7 +22,7 @@ use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PA
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
 use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum, uvchksum
-use MOM_checksums,         only : write_to_netcdf, sym_trans_active
+use MOM_checksums,         only : sym_trans_active
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -517,20 +517,6 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     enddo ; enddo
   enddo
 
-  if (sym_trans_active()) then
-    call write_to_netcdf(G%mask2dCu, 'sym_mask2dCu.nc')
-    call write_to_netcdf(G%mask2dCv, 'sym_mask2dCv.nc')
-    call write_to_netcdf(G%bathyT, 'sym_bathyT.nc')
-    call write_to_netcdf(vp, 'sym_vp.nc')
-    call write_to_netcdf(up, 'sym_up.nc')
-  else
-    call write_to_netcdf(G%mask2dCu, 'mask2dCu.nc')
-    call write_to_netcdf(G%mask2dCv, 'mask2dCv.nc')
-    call write_to_netcdf(G%bathyT, 'bathyT.nc')
-    call write_to_netcdf(vp, 'vp.nc')
-    call write_to_netcdf(up, 'up.nc')
-  endif
-
   if (CS%debug) then
     call uchksum(G%mask2dCu,"before set_viscous_ML: mask2dCu",G%HI,haloshift=0)
     call vchksum(G%mask2dCv,"before set_viscous_ML: mask2dCv",G%HI,haloshift=0)
@@ -998,6 +984,8 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   endif
 
   if (showCallTree) call callTree_leave("step_MOM_dyn_split_RK2()")
+
+  stop 'xxx'
 
 end subroutine step_MOM_dyn_split_RK2
 

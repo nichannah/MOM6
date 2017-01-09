@@ -4,7 +4,6 @@ module MOM_PressureForce_AFV
 ! This file is part of MOM6. See LICENSE.md for the license.
 
 use MOM_checksums, only : hchksum, vchksum, uchksum
-use MOM_checksums, only : sym_trans_active, write_to_netcdf
 use MOM_diag_mediator, only : post_data, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, time_type
 use MOM_error_handler, only : MOM_error, FATAL, WARNING, is_root_pe
@@ -485,6 +484,7 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   integer :: ioff_bk, joff_bk
   integer :: i, j, k, n, ib, jb
   integer :: PRScheme
+  character(len=16) :: fname
 
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
   nkmb=GV%nk_rho_varies
@@ -499,6 +499,9 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   do i=Isq,Ieq+1 ; p0(i) = 0.0 ; enddo
   use_ALE = .false.
   if (associated(ALE_CSp)) use_ALE = usePressureReconstruction(ALE_CSp) .and. use_EOS
+
+  PFu(:, :, :) = 0.0
+  PFv(:, :, :) = 0.0
 
   PRScheme = pressureReconstructionScheme(ALE_CSp)
   h_neglect = GV%H_subroundoff
@@ -543,25 +546,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
 
   call hchksum(e, "PressureForce_AFV_Bouss eta", G%HI, haloshift=0)
   call hchksum(h, "PressureForce_AFV_Bouss h", G%HI, haloshift=0)
-  if (sym_trans_active()) then
-    call write_to_netcdf(G%bathyT(:, :), 'bathyT_sym.nc')
-    call write_to_netcdf(e(:, :, :), 'e_sym.nc')
-    call write_to_netcdf(transpose(e(:, :, 1)), 'e_sym_top.nc')
-    call write_to_netcdf(h(:, :, :), 'h_sym.nc')
-    call write_to_netcdf(G%IdyCu(:, :), 'IdyCu_sym.nc')
-    call write_to_netcdf(G%IdyCv(:, :), 'IdyCv_sym.nc')
-    call write_to_netcdf(G%IdxCu(:, :), 'IdxCu_sym.nc')
-    call write_to_netcdf(G%IdxCv(:, :), 'IdxCv_sym.nc')
-  else
-    call write_to_netcdf(G%bathyT(:, :), 'bathyT.nc')
-    call write_to_netcdf(G%IdyCu(:, :), 'IdyCu.nc')
-    call write_to_netcdf(G%IdyCv(:, :), 'IdyCv.nc')
-    call write_to_netcdf(G%IdxCu(:, :), 'IdxCu.nc')
-    call write_to_netcdf(G%IdxCv(:, :), 'IdxCv.nc')
-    call write_to_netcdf(e(:, :, :), 'e.nc')
-    call write_to_netcdf(e(:, :, 1), 'e_top.nc')
-    call write_to_netcdf(h(:, :, :), 'h.nc')
-  endif
 
   if (use_EOS) then
 ! With a bulk mixed layer, replace the T & S of any layers that are
@@ -687,14 +671,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       inty_pa_bk(ib,Jb) = 0.5*(pa_bk(ib,jb) + pa_bk(ib,jb+1))
     enddo ; enddo
 
-    if (k == 1) then
-      if (sym_trans_active()) then
-        call write_to_netcdf(pa_bk(:, :), 'pa_bk_sym.nc')
-      else
-        call write_to_netcdf(pa_bk(:, :), 'pa_bk.nc')
-      endif
-    endif
-
     do k=1,nz
       ! Calculate 4 integrals through the layer that are required in the
       ! subsequent calculation.
@@ -742,20 +718,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
         enddo ; enddo
       endif
 
-      if (k == 1) then
-        if (sym_trans_active()) then
-          call write_to_netcdf(dz_bk(:, :), 'dz_bk_sym.nc')
-          call write_to_netcdf(intx_dpa_bk(:, :), 'intx_dpa_bk_sym.nc')
-          call write_to_netcdf(inty_dpa_bk(:, :), 'inty_dpa_bk_sym.nc')
-          call write_to_netcdf(intz_dpa_bk(:, :), 'intz_dpa_bk_sym.nc')
-        else
-          call write_to_netcdf(dz_bk(:, :), 'dz_bk.nc')
-          call write_to_netcdf(intx_dpa_bk(:, :), 'intx_dpa_bk.nc')
-          call write_to_netcdf(inty_dpa_bk(:, :), 'inty_dpa_bk.nc')
-          call write_to_netcdf(intz_dpa_bk(:, :), 'intz_dpa_bk.nc')
-        endif
-      endif
-
       ! Compute pressure gradient in x direction
       do jb=js_bk,je_bk ; do Ib=Isq_bk,Ieq_bk
         I = Ib+ioff_bk ; j = jb+joff_bk
@@ -782,20 +744,39 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
         pa_bk(ib,jb) = pa_bk(ib,jb) + dpa_bk(ib,jb)
       enddo ; enddo
 
-      call uchksum(PFu(:, :, k),"During PressureForce PFu",G%HI,haloshift=0)
-      call vchksum(PFv(:, :, k),"During PressureForce PFv",G%HI,haloshift=0)
+      write(fname, "(A5,I1)") "pa_bk", k 
+      call hchksum(pa_bk(:, :),"pa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      write(fname, "(A11,I1)") "intz_dpa_bk", k 
+      call hchksum(intz_dpa_bk(:, :),"intz_dpa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      write(fname, "(A1,I1)") "h", k 
+      call hchksum(h(:, :, k),"h", G%HI,haloshift=0, fname=trim(fname))
+      write(fname, "(A1,I1)") "e", k 
+      call hchksum(e(:, :, k),"e", G%HI,haloshift=0, fname=trim(fname))
 
-      if (k == 1) then
-        if (sym_trans_active()) then
-          call write_to_netcdf(PFu(:, :, k), 'PFu_sym.nc')
-          call write_to_netcdf(PFv(:, :, k), 'PFv_sym.nc')
-        else
-          call write_to_netcdf(PFu(:, :, k), 'PFu.nc')
-          call write_to_netcdf(PFv(:, :, k), 'PFv.nc')
-        endif
-      endif
+      write(fname, "(A10,I1)") "int_dpa_bk", k 
+      call uchksum(intx_dpa_bk(:, :),"intx_dpa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      
+      write(fname, "(A9,I1)") "int_pa_bk", k 
+      call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0, &
+                   fname=trim(fname))
+
+      write(fname, "(A3,I1)") "IdC", k 
+      call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0, fname=trim(fname))
+      call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0, fname=trim(fname))
+
+      write(fname, "(A2,I1)") "PF", k 
+      call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0, &
+                   fname=trim(fname))
+      call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0, &
+                   fname=trim(fname))
     enddo
-
 
     if (CS%GFS_scale < 1.0) then
       do k=1,nz
@@ -832,6 +813,8 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
 
 
   if (CS%id_e_tidal>0) call post_data(CS%id_e_tidal, e_tidal, CS%diag)
+
+  stop '7777'
 
 end subroutine PressureForce_AFV_Bouss
 

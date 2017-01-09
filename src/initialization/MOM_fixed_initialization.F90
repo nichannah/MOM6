@@ -109,10 +109,10 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
   call open_boundary_impose_land_mask(OBC, G, G%areaCu, G%areaCv)
 
   if (debug) then
-    call hchksum(G%bathyT, 'MOM_initialize_fixed: depth', G%HI, haloshift=1)
+    call hchksum(G%bathyT, 'MOM_initialize_fixed: depth', G%HI, haloshift=1, fname='depth')
     call hchksum(G%mask2dT, 'MOM_initialize_fixed: mask2dT ', G%HI)
-    call uchksum(G%mask2dCu, 'MOM_initialize_fixed: mask2dCu ', G%HI)
-    call vchksum(G%mask2dCv, 'MOM_initialize_fixed: mask2dCv ', G%HI)
+    call uchksum(G%mask2dCu, 'MOM_initialize_fixed: mask2dCu ', G%HI, fname='mask2d')
+    call vchksum(G%mask2dCv, 'MOM_initialize_fixed: mask2dCv ', G%HI, fname='mask2d')
     call qchksum(G%mask2dBu, 'MOM_initialize_fixed: mask2dBu ', G%HI)
   endif
 

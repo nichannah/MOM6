@@ -66,7 +66,7 @@ module MOM_grid_initialize
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, write_to_netcdf
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
 use MOM_checksums, only : sym_trans, sym_trans_active, swap_md
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
@@ -814,6 +814,7 @@ subroutine set_grid_metrics_spherical(G, param_file)
       call sym_trans(G%geoLonT)
       call sym_trans(G%geoLatT)
   endif
+
 
   call callTree_leave("set_grid_metrics_spherical()")
 end subroutine set_grid_metrics_spherical

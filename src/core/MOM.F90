@@ -24,7 +24,7 @@ use MOM_variables, only: thermo_var_ptrs
 
 ! Infrastructure modules
 use MOM_checksums,            only : MOM_checksums_init, hchksum, uchksum, vchksum
-use MOM_checksums,            only : sym_trans_active, write_to_netcdf  
+use MOM_checksums,            only : sym_trans_active
 use MOM_checksum_packages,    only : MOM_thermo_chksum, MOM_state_chksum, MOM_accel_chksum
 use MOM_cpu_clock,            only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,            only : CLOCK_COMPONENT, CLOCK_SUBCOMPONENT
@@ -91,7 +91,7 @@ use MOM_dyn_horgrid,           only : dyn_horgrid_type, create_dyn_horgrid, dest
 use MOM_EOS,                   only : EOS_init
 use MOM_error_checking,        only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
-use MOM_grid,                  only : MOM_grid_init, MOM_grid_end, MOM_grid_symmetric_transform 
+use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
 use MOM_hor_index,             only : hor_index_type, hor_index_init
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
 use MOM_interface_heights,     only : find_eta
@@ -629,11 +629,6 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
   endif
 
   if (CS%debug) then
-    if (sym_trans_active()) then
-      call write_to_netcdf(h, 'h1_sym.nc')
-    else
-      call write_to_netcdf(h, 'h1.nc')
-    endif
     call MOM_state_chksum("Before steps ", u, v, h, CS%uh, CS%vh, G, GV)
     call MOM_forcing_chksum("Before steps", fluxes, G, haloshift=0)
     call check_redundant("Before steps ", u, v, G)
@@ -690,12 +685,6 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
       !call cpu_clock_begin(id_clock_vertvisc)
       call set_viscous_BBL(u, v, h, CS%tv, CS%visc, G, GV, CS%set_visc_CSp)
       !call cpu_clock_end(id_clock_vertvisc)
-
-      if (sym_trans_active()) then
-        call write_to_netcdf(h, 'h2_sym.nc')
-      else
-        call write_to_netcdf(h, 'h2.nc')
-      endif
 
       call cpu_clock_begin(id_clock_pass)
       if(associated(CS%visc%Ray_u) .and. associated(CS%visc%Ray_v)) &
@@ -2441,8 +2430,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call MOM_grid_init(G, param_file, HI, bathymetry_at_vel=bathy_at_vel)
   call copy_dyngrid_to_MOM_grid(dG, G)
   call destroy_dyn_horgrid(dG)
-
-  call MOM_grid_symmetric_transform(G)
 
   ! Set a few remaining fields that are specific to the ocean grid type.
   call set_first_direction(G, first_direction)

@@ -92,7 +92,7 @@ module MOM_barotropic
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, uchksum, vchksum, uvchksum, bchksum, chksum
-use MOM_checksums, only : write_to_netcdf, swap_md, sym_trans_active
+use MOM_checksums, only : swap_md, sym_trans_active
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, enable_averaging
@@ -867,14 +867,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
             (G%areaT(i+1,j) * G%bathyT(i+1,j) + G%areaT(i,j+1) * G%bathyT(i,j+1)))
     enddo ; enddo
 !$OMP end parallel
-
-    if (sym_trans_active()) then
-        call write_to_netcdf(q, 'sym_q.nc')
-        call write_to_netcdf(G%CoriolisBu, 'sym_coriolis.nc')
-    else
-        call write_to_netcdf(q, 'q.nc')
-        call write_to_netcdf(G%CoriolisBu, 'coriolis.nc')
-    endif 
 
     ! With very wide halos, q and D need to be calculated on the available data
     ! domain and then updated onto the full computational domain.
@@ -3068,8 +3060,6 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
     endif
     call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1)
   endif
-
-  call write_to_netcdf(h(:, :, :), 'h_btcalc.nc')
 
 end subroutine btcalc
 

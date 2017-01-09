@@ -96,13 +96,22 @@ contains
 ! =====================================================================
 
 !> chksum_h_2d performs checksums on a 2d array staggered at tracer points.
-subroutine chksum_h_2d(array, mesg, HI, haloshift)
+subroutine chksum_h_2d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: array !< The array to be checksummed
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),      optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_h_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_h.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%jsc:HI%jec))) &
@@ -190,7 +199,7 @@ end subroutine chksum_h_2d
 ! =====================================================================
 
 !> chksum_B_2d performs checksums on a 2d array staggered at corner points.
-subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
+subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric, fname)
   type(hor_index_type), intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%IsdB:,HI%JsdB:), &
                         intent(in) :: array !< The array to be checksummed
@@ -198,9 +207,18 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric)
   integer,    optional, intent(in) :: haloshift !< The width of halos to check (default 0)
   logical,    optional, intent(in) :: symmetric !< If true, do the checksums on the
                                                 !! full symmetric computational domain.
+  character(len=*),     optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: sym
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_B_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_B.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%JscB:HI%JecB))) &
@@ -371,13 +389,22 @@ subroutine chksum_uv_3d(u_array, v_array, u_mesg, v_mesg, &
 end subroutine chksum_uv_3d
 
 !> chksum_u_2d performs checksums on a 2d array staggered at C-grid u points.
-subroutine chksum_u_2d(array, mesg, HI, haloshift)
+subroutine chksum_u_2d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%IsdB:,HI%jsd:), intent(in) :: array !< The array to be checksummed
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_u_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_u.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%jsc:HI%jec))) &
@@ -464,13 +491,22 @@ end subroutine chksum_u_2d
 ! =====================================================================
 
 !> chksum_v_2d performs checksums on a 2d array staggered at C-grid v points.
-subroutine chksum_v_2d(array, mesg, HI, haloshift)
+subroutine chksum_v_2d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),           intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%JsdB:), intent(in) :: array !< The array to be checksummed
   character(len=*),                intent(in) :: mesg  !< An identifying message
   integer,               optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_v_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_v.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%JscB:HI%JecB))) &
@@ -558,13 +594,22 @@ end subroutine chksum_v_2d
 ! =====================================================================
 
 !> chksum_h_3d performs checksums on a 3d array staggered at tracer points.
-subroutine chksum_h_3d(array, mesg, HI, haloshift)
+subroutine chksum_h_3d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),             intent(in) :: HI !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:,:),  intent(in) :: array !< The array to be checksummed
   character(len=*),                  intent(in) :: mesg  !< An identifying message
   integer,                 optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_h_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_h.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%jsc:HI%jec,:))) &
@@ -665,13 +710,22 @@ end subroutine chksum_h_3d
 ! =====================================================================
 
 !> chksum_B_3d performs checksums on a 3d array staggered at corner points.
-subroutine chksum_B_3d(array, mesg, HI, haloshift)
+subroutine chksum_B_3d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),              intent(in) :: HI !< A horizontal index type
   real, dimension(HI%IsdB:,HI%JsdB:,:), intent(in) :: array !< The array to be checksummed
   character(len=*),                   intent(in) :: mesg  !< An identifying message
   integer,                  optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_B_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_B.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%JscB:HI%JecB,:))) &
@@ -758,13 +812,22 @@ end subroutine chksum_B_3d
 ! =====================================================================
 
 !> chksum_u_3d performs checksums on a 3d array staggered at C-grid u points.
-subroutine chksum_u_3d(array, mesg, HI, haloshift)
+subroutine chksum_u_3d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),             intent(in) :: HI !< A horizontal index type
   real, dimension(HI%isdB:,HI%Jsd:,:), intent(in) :: array !< The array to be checksummed
-  character(len=*),                  intent(in) :: mesg  !< An identifying message
+  character(len=*),                   intent(in) :: mesg  !< An identifying message
   integer,    optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_u_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_u.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%IscB:HI%IecB,HI%jsc:HI%jec,:))) &
@@ -851,13 +914,22 @@ end subroutine chksum_u_3d
 ! =====================================================================
 
 !> chksum_v_3d performs checksums on a 3d array staggered at C-grid v points.
-subroutine chksum_v_3d(array, mesg, HI, haloshift)
+subroutine chksum_v_3d(array, mesg, HI, haloshift, fname)
   type(hor_index_type),             intent(in) :: HI !< A horizontal index type
   real, dimension(HI%isd:,HI%JsdB:,:), intent(in) :: array !< The array to be checksummed
   character(len=*),                  intent(in) :: mesg  !< An identifying message
   integer,    optional, intent(in) :: haloshift !< The width of halos to check (default 0)
+  character(len=*),        optional, intent(in) :: fname  !< Name of file to dump
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
+
+  if (present(fname)) then
+      if (sym_trans_active()) then
+        call write_to_netcdf(array, fname//'_v_sym.nc')
+      else
+        call write_to_netcdf(array, fname//'_v.nc')
+      endif
+  endif
 
   if (checkForNaNs) then
     if (is_NaN(array(HI%isc:HI%iec,HI%JscB:HI%JecB,:))) &
@@ -1431,9 +1503,9 @@ subroutine write_to_netcdf3d(array, file_name)
 
   ! now that the dimensions are defined, we can define variables on them,...
   arrdims = (/ xdim_id, ydim_id, zdim_id /)
-  ierr = nf90_def_var(file_id, 'Array',  NF90_REAL, arrdims, array_id)
+  ierr = nf90_def_var(file_id, 'Array',  NF90_DOUBLE, arrdims, array_id)
 
-  ! ...and assign units to them as an attribute 
+  ! ...and assign units to them as an attribute
   ierr = nf90_put_att(file_id, array_id, "units", arrunit)
 
   ! done defining
@@ -1473,9 +1545,9 @@ subroutine write_to_netcdf2d(array, file_name)
 
   ! now that the dimensions are defined, we can define variables on them,...
   arrdims = (/ xdim_id, ydim_id /)
-  ierr = nf90_def_var(file_id, 'Array',  NF90_REAL, arrdims, array_id)
+  ierr = nf90_def_var(file_id, 'Array',  NF90_DOUBLE, arrdims, array_id)
 
-  ! ...and assign units to them as an attribute 
+  ! ...and assign units to them as an attribute
   ierr = nf90_put_att(file_id, array_id, "units", arrunit)
 
   ! done defining

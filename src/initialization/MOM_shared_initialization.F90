@@ -4,6 +4,7 @@ module MOM_shared_initialization
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
+use MOM_checksums, only : sym_trans_active
 use MOM_coms, only : max_across_PEs
 use MOM_domains, only : pass_var, pass_vector, sum_across_PEs, broadcast
 use MOM_domains, only : root_PE, To_All, SCALAR_PAIR, CGRID_NE, AGRID
@@ -117,6 +118,7 @@ subroutine MOM_calculate_grad_Coriolis(dF_dx, dF_dy, G)
   print*, 'G%JsdB: ', G%JsdB
   print*, 'G%JedB: ', G%JedB
 
+  ! The problem with this is that 
   do j=G%jsc, G%jec ; do i=G%isc, G%iec
     f1 = 0.5*( G%CoriolisBu(I,J) + G%CoriolisBu(I,J-1) )
     f2 = 0.5*( G%CoriolisBu(I-1,J) + G%CoriolisBu(I-1,J-1) )
