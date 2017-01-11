@@ -798,7 +798,6 @@ subroutine set_grid_metrics_spherical(G, param_file)
   enddo; enddo
 
   if (sym_trans_active()) then
-      G%geoLatCu_debug(:, :) = G%geoLatCu(:, :)
       call sym_trans_and_swap(G%geoLonCu, G%geoLonCv)
       call sym_trans_and_swap(G%geoLatCu, G%geoLatCv)
       call sym_trans_and_swap(G%dxCu, G%dxCv)

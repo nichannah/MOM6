@@ -87,7 +87,6 @@ type, public :: ocean_grid_type
     mask2dCu, &  !< 0 for boundary points and 1 for ocean points on the u grid.  Nondim.
     geoLatCu, &  !< The geographic latitude at u points in degrees of latitude or m.
     geoLonCu, &  !< The geographic longitude at u points in degrees of longitude or m.
-    geoLatCu_debug, &  !< A copy of above used for debugging purposes.
     dxCu, &      !< dxCu is delta x at u points, in m.
     IdxCu, &     !< 1/dxCu in m-1.
     dyCu, &      !< dyCu is delta y at u points, in m.
@@ -497,7 +496,6 @@ subroutine allocate_metrics(G)
   ALLOC_(G%geoLatBu(IsdB:IedB,JsdB:JedB)) ; G%geoLatBu(:,:) = 0.0
   ALLOC_(G%geoLonT(isd:ied,jsd:jed))      ; G%geoLonT(:,:) = 0.0
   ALLOC_(G%geoLonCu(IsdB:IedB,jsd:jed))   ; G%geoLonCu(:,:) = 0.0
-  ALLOC_(G%geoLonCu_debug(IsdB:IedB,jsd:jed))   ; G%geoLonCu_debug(:,:) = 0.0
   ALLOC_(G%geoLonCv(isd:ied,JsdB:JedB))   ; G%geoLonCv(:,:) = 0.0
   ALLOC_(G%geoLonBu(IsdB:IedB,JsdB:JedB)) ; G%geoLonBu(:,:) = 0.0
 
@@ -546,7 +544,7 @@ subroutine MOM_grid_end(G)
 
   DEALLOC_(G%geoLatT)  ; DEALLOC_(G%geoLatCu)
   DEALLOC_(G%geoLatCv) ; DEALLOC_(G%geoLatBu)
-  DEALLOC_(G%geoLonT)  ; DEALLOC_(G%geoLonCu) ; DEALLOC_(G%geoLonCu_debug)
+  DEALLOC_(G%geoLonT)  ; DEALLOC_(G%geoLonCu)
   DEALLOC_(G%geoLonCv) ; DEALLOC_(G%geoLonBu)
 
   DEALLOC_(G%dx_Cv) ; DEALLOC_(G%dy_Cu)

@@ -65,7 +65,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
-use MOM_checksums,           only : sym_trans_active, sym_trans_and_swap
+use MOM_checksums,           only : sym_trans_active, sym_trans_and_swap, sym_trans_and_swap_reverse, rot90
 use MOM_constants,           only : hlv, hlf
 use MOM_cpu_clock,           only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,           only : CLOCK_MODULE
@@ -479,6 +479,7 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   real :: PI
   integer :: i, j, is, ie, js, je, Isq, Ieq, Jsq, Jeq
   integer :: isd, ied, jsd, jed, IsdB, IedB, JsdB, JedB
+  real, allocatable, dimension(:, :) :: tmp
 
   call callTree_enter("wind_forcing_2gyre, MOM_surface_forcing.F90")
   is   = G%isc  ; ie   = G%iec  ; js   = G%jsc  ; je   = G%jec
@@ -490,13 +491,14 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   PI = 4.0*atan(1.0)
 
   if (sym_trans_active()) then
-    print*, 'HERE 0'
+    ! Need to undo the rotation
+    allocate(tmp(size(G%geoLatCv, 2), size(G%geoLatCv, 1)))
+    call rot90(G%geoLatCv(:, :), tmp(:, :), 3)
     do j=js,je ; do I=Isq,Ieq
-      fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu_debug(I,j)-CS%South_lat) / &
+      fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(tmp(I,j)-CS%South_lat) / &
                                         CS%len_lat))
     enddo ; enddo
   else
-    print*, 'HERE 1'
     do j=js,je ; do I=Isq,Ieq
       fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu(I,j)-CS%South_lat) / &
                                         CS%len_lat))
@@ -513,7 +515,6 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
 
   call callTree_leave("wind_forcing_2gyre")
 end subroutine wind_forcing_2gyre
-
 
 subroutine wind_forcing_1gyre(state, fluxes, day, G, CS)
   type(surface),            intent(inout) :: state

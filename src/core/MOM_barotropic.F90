@@ -3052,13 +3052,13 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
 
   if (CS%debug) then
     if (sym_trans_active()) then
-      call uchksum(CS%frhatv, "btcalc frhatu",G%HI,haloshift=1)
-      call vchksum(CS%frhatu, "btcalc frhatv",G%HI,haloshift=1)
+      call uchksum(CS%frhatv, "btcalc frhatu",G%HI,haloshift=1, fname='frhat')
+      call vchksum(CS%frhatu, "btcalc frhatv",G%HI,haloshift=1, fname='frhat')
     else
-      call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1)
-      call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1)
+      call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1, fname='frhat')
+      call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1, fname='frhat')
     endif
-    call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1)
+    call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1, fname='btcalc_h')
   endif
 
 end subroutine btcalc

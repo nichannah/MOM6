@@ -158,9 +158,9 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
 !   Calculate the components of grad f (beta)
   call MOM_calculate_grad_Coriolis(G%dF_dx, G%dF_dy, G)
   if (debug) then
-    call qchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI)
-    call hchksum(G%dF_dx, "MOM_initialize_fixed: dF_dx ", G%HI)
-    call hchksum(G%dF_dy, "MOM_initialize_fixed: dF_dy ", G%HI)
+    call qchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI, fname='coriolis')
+    call hchksum(G%dF_dx, "MOM_initialize_fixed: dF_dx ", G%HI, fname='dF_dx')
+    call hchksum(G%dF_dy, "MOM_initialize_fixed: dF_dy ", G%HI, fname='dF_dy')
   endif
 
 ! Compute global integrals of grid values for later use in scalar diagnostics !

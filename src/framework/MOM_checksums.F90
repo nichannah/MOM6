@@ -30,7 +30,8 @@ use MOM_hor_index, only : hor_index_type
 implicit none ; private
 
 public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: write_to_netcdf, sym_trans, sym_trans_and_swap, sym_trans_active, uvchksum
+public :: write_to_netcdf, sym_trans, sym_trans_and_swap, sym_trans_and_swap_reverse, rot90
+public :: sym_trans_active, uvchksum
 public :: MOM_checksums_init
 
 interface hchksum
@@ -78,10 +79,17 @@ interface sym_trans_and_swap
   module procedure sym_trans_and_swap_2d, sym_trans_and_swap_3d
 end interface
 
+interface sym_trans_and_swap_reverse
+  module procedure sym_trans_and_swap_reverse_2d, sym_trans_and_swap_reverse_3d
+end interface
+
 interface write_to_netcdf
   module procedure write_to_netcdf2d, write_to_netcdf3d
 end interface
 
+interface rot90
+  module procedure rot90_2d, rot90_3d
+end interface
 
 integer, parameter :: default_shift=0
 logical :: calculateStatistics=.true. ! If true, report min, max and mean.
@@ -1461,6 +1469,56 @@ subroutine sym_trans_and_swap_3d(arrayA, arrayB)
   deallocate(tmp)
 
 end subroutine sym_trans_and_swap_3d
+
+subroutine sym_trans_and_swap_reverse_2d(arrayA, arrayB)
+  real, intent(inout), dimension(:,:) :: arrayA, arrayB
+
+  real, allocatable, dimension(:,:) :: tmp
+
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
+
+  if (size(arrayA, 1) /= size(arrayB, 2) .or. size(arrayA, 2) /= size(arrayB, 1)) then
+    call MOM_error(FATAL, 'sym_trans_and_swap_2d: arrays shapes imcompatible.')
+  endif
+
+  allocate(tmp(size(arrayA, 1), size(arrayA, 2)))
+
+  tmp(:, :) = arrayA(:, :)
+
+  call rot90_2d(arrayB, arrayA, 3)
+  call rot90_2d(tmp, arrayB, 3)
+
+  deallocate(tmp)
+
+end subroutine sym_trans_and_swap_reverse_2d
+
+subroutine sym_trans_and_swap_reverse_3d(arrayA, arrayB)
+  real, intent(inout), dimension(:,:,:) :: arrayA, arrayB
+
+  real, allocatable, dimension(:,:,:) :: tmp
+
+  if (.not. sym_trans_is_configured) then
+    return
+  endif
+
+  if (size(arrayA, 1) /= size(arrayB, 2) .or. &
+          size(arrayA, 2) /= size(arrayB, 1) .or. &
+          size(arrayA, 3) /= size(arrayB, 3)) then
+    call MOM_error(FATAL, 'sym_trans_and_swap_3d: array shapes incompatible.')
+  endif
+
+  allocate(tmp(size(arrayA, 1), size(arrayA, 2), size(arrayA, 3)))
+
+  tmp(:, :, :) = arrayA(:, :, :)
+
+  call rot90_3d(arrayB, arrayA, 3)
+  call rot90_3d(tmp, arrayB, 3)
+
+  deallocate(tmp)
+
+end subroutine sym_trans_and_swap_reverse_3d
 
 subroutine write_to_netcdf3d(array, file_name)
   use netcdf
