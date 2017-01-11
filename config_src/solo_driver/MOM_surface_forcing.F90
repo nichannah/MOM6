@@ -65,7 +65,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
-use MOM_checksums,           only : sym_trans_active, sym_trans_and_swap, sym_trans_and_swap_reverse, rot90
+use MOM_checksums,           only : sym_trans_active, sym_trans_and_swap, rot90
 use MOM_constants,           only : hlv, hlf
 use MOM_cpu_clock,           only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,           only : CLOCK_MODULE
