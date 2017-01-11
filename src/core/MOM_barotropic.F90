@@ -92,7 +92,7 @@ module MOM_barotropic
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, uchksum, vchksum, uvchksum, bchksum, chksum
-use MOM_checksums, only : swap_md, sym_trans_active
+use MOM_checksums, only : sym_trans_active
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, enable_averaging

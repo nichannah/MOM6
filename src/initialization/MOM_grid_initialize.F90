@@ -67,7 +67,7 @@ module MOM_grid_initialize
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
-use MOM_checksums, only : sym_trans, sym_trans_active, swap_md
+use MOM_checksums, only : sym_trans_active, sym_trans, sym_trans_and_swap
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -187,28 +187,28 @@ subroutine grid_metrics_chksum(parent, G)
 halo=1 ! AJA
 
   do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%dxT(i,j) ; enddo ; enddo
-  call hchksum(tempH,trim(parent)//': dxT',G%HI, haloshift=halo)
+  call hchksum(tempH,trim(parent)//': dxT',G%HI, haloshift=halo, fname='dxT')
 
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%dxCu(I,j) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': dxCu',G%HI, haloshift=halo)
+  call uchksum(tempE,trim(parent)//': dxCu',G%HI, haloshift=halo, fname='dxC')
 
   do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%dxCv(i,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': dxCv',G%HI, haloshift=halo)
+  call vchksum(tempN,trim(parent)//': dxCv',G%HI, haloshift=halo, fname='dxC')
  
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%dxBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': dxBu',G%HI, haloshift=halo)
+  call qchksum(tempQ,trim(parent)//': dxBu',G%HI, haloshift=halo, fname='dxBu')
  
   do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%dyT(i,j) ; enddo ; enddo
-  call hchksum(tempH,trim(parent)//': dyT',G%HI, haloshift=halo)
+  call hchksum(tempH,trim(parent)//': dyT',G%HI, haloshift=halo, fname='dyT')
  
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%dyCu(I,j) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': dyCu',G%HI, haloshift=halo)
+  call uchksum(tempE,trim(parent)//': dyCu',G%HI, haloshift=halo, fname='dyC')
  
   do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%dyCv(i,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': dyCv',G%HI, haloshift=halo)
+  call vchksum(tempN,trim(parent)//': dyCv',G%HI, haloshift=halo, fname='dyC')
  
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%dyBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': dyBu',G%HI, haloshift=halo)
+  call qchksum(tempQ,trim(parent)//': dyBu',G%HI, haloshift=halo, fname='dyBu')
 
   do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%IdxT(i,j) ; enddo ; enddo
   call hchksum(tempH,trim(parent)//': IdxT',G%HI, haloshift=halo)
@@ -246,27 +246,27 @@ halo=1 ! AJA
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%IareaBu(I,J) ; enddo ; enddo
   call qchksum(tempQ,trim(parent)//': IareaBu',G%HI, haloshift=halo)
 
-  call hchksum(G%geoLonT,trim(parent)//': geoLonT',G%HI, haloshift=halo)
+  call hchksum(G%geoLonT,trim(parent)//': geoLonT',G%HI, haloshift=halo, fname='geoLonT')
 
-  call hchksum(G%geoLatT,trim(parent)//': geoLatT',G%HI, haloshift=halo)
+  call hchksum(G%geoLatT,trim(parent)//': geoLatT',G%HI, haloshift=halo, fname='geoLatT')
 
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLonBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLonBu',G%HI, haloshift=halo)
+  call qchksum(tempQ,trim(parent)//': geoLonBu',G%HI, haloshift=halo, fname='geoLonBu')
 
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLatBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLatBu',G%HI, haloshift=halo)
+  call qchksum(tempQ,trim(parent)//': geoLatBu',G%HI, haloshift=halo, fname='geoLatBu')
 
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,J) = G%geoLonCu(I,J) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': geoLonCu',G%HI, haloshift=halo)
+  call uchksum(tempE,trim(parent)//': geoLonCu',G%HI, haloshift=halo, fname='geoLonC')
 
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,J) = G%geoLatCu(I,J) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': geoLatCu',G%HI, haloshift=halo)
+  call uchksum(tempE,trim(parent)//': geoLatCu',G%HI, haloshift=halo, fname='geoLatC')
 
   do i=isd,ied ; do J=JsdB,JedB ; tempN(I,J) = G%geoLonCv(I,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': geoLonCv',G%HI, haloshift=halo)
+  call vchksum(tempN,trim(parent)//': geoLonCv',G%HI, haloshift=halo, fname='geoLonC')
 
   do i=isd,ied ; do J=JsdB,JedB ; tempN(I,J) = G%geoLatCv(I,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': geoLatCv',G%HI, haloshift=halo)
+  call vchksum(tempN,trim(parent)//': geoLatCv',G%HI, haloshift=halo, fname='geoLatC')
 
 end subroutine grid_metrics_chksum
 
@@ -733,6 +733,29 @@ subroutine set_grid_metrics_spherical(G, param_file)
   enddo
 
   dL_di = (G%len_lon * 4.0*atan(1.0)) / (180.0 * G%Domain%niglobal)
+  do j=jsd,jed ; do i=isd,ied
+    G%geoLonT(i,j) = grid_LonT(i)
+    G%geoLatT(i,j) = grid_LatT(j)
+
+! The following line is needed to reproduce the solution from
+! set_grid_metrics_mercator when used to generate a simple spherical grid.
+    G%dxT(i,j) = G%Rad_Earth * COS( G%geoLatT(i,j)*PI_180 ) * dL_di
+!   G%dxT(i,j) = G%Rad_Earth * dLon*PI_180 * COS( latitude )
+    G%dyT(i,j) = G%Rad_Earth * dLat*PI_180
+
+!   latitude = G%geoLatCv(i,J)*PI_180             ! In radians
+!   dL_di    = G%geoLatCv(i,max(jsd,J-1))*PI_180  ! In radians
+!   G%areaT(i,j) = Rad_Earth**2*dLon*dLat*ABS(SIN(latitude)-SIN(dL_di))
+    G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
+  enddo; enddo
+
+  if (sym_trans_active()) then
+      call sym_trans(G%geoLonT)
+      call sym_trans(G%geoLatT)
+      call sym_trans(G%areaT)
+      call sym_trans_and_swap(G%dxT, G%dyT)
+  endif
+
   do J=JsdB,JedB ; do I=IsdB,IedB
     G%geoLonBu(I,J) = grid_lonB(I)
     G%geoLatBu(I,J) = grid_latB(J)
@@ -744,6 +767,13 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyBu(I,J) = G%Rad_Earth * dLat*PI_180
     G%areaBu(I,J) = G%dxBu(I,J) * G%dyBu(I,J)
   enddo; enddo
+
+  if (sym_trans_active()) then
+      call sym_trans(G%geoLonBu)
+      call sym_trans(G%geoLatBu)
+      call sym_trans(G%areaBu)
+      call sym_trans_and_swap(G%dxBu, G%dyBu)
+  endif    
 
   do J=JsdB,JedB ; do i=isd,ied
     G%geoLonCv(i,J) = grid_LonT(i)
@@ -767,54 +797,13 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyCu(I,j) = G%Rad_Earth * dLat*PI_180
   enddo; enddo
 
-
-  do j=jsd,jed ; do i=isd,ied
-    G%geoLonT(i,j) = grid_LonT(i)
-    G%geoLatT(i,j) = grid_LatT(j)
-
-! The following line is needed to reproduce the solution from
-! set_grid_metrics_mercator when used to generate a simple spherical grid.
-    G%dxT(i,j) = G%Rad_Earth * COS( G%geoLatT(i,j)*PI_180 ) * dL_di
-!   G%dxT(i,j) = G%Rad_Earth * dLon*PI_180 * COS( latitude )
-    G%dyT(i,j) = G%Rad_Earth * dLat*PI_180
-
-!   latitude = G%geoLatCv(i,J)*PI_180             ! In radians
-!   dL_di    = G%geoLatCv(i,max(jsd,J-1))*PI_180  ! In radians
-!   G%areaT(i,j) = Rad_Earth**2*dLon*dLat*ABS(SIN(latitude)-SIN(dL_di))
-    G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
-  enddo; enddo
-
   if (sym_trans_active()) then
-      call sym_trans(G%dxBu)
-      call sym_trans(G%dyBu)
-      call sym_trans(G%areaBu)
-
-      call sym_trans(G%dxCv)
-      call sym_trans(G%dyCv)
-      call sym_trans(G%dxCu)
-      call sym_trans(G%dyCu)
-
-      call sym_trans(G%dxT)
-      call sym_trans(G%dyT)
-      call sym_trans(G%areaT)
-
-      call swap_md(G%dxBu, G%dyBu)
-      call swap_md(G%dxCu, G%dyCv)
-      call swap_md(G%dxCv, G%dyCu)
-      call swap_md(G%dxT, G%dyT)
-
-      call sym_trans(G%geoLonBu)
-      call sym_trans(G%geoLatBu)
-
-      call sym_trans(G%geoLonCv)
-      call sym_trans(G%geoLatCv)
-      call sym_trans(G%geoLonCu)
-      call sym_trans(G%geoLatCu)
-
-      call sym_trans(G%geoLonT)
-      call sym_trans(G%geoLatT)
-  endif
-
+      G%geoLatCu_debug(:, :) = G%geoLatCu(:, :)
+      call sym_trans_and_swap(G%geoLonCu, G%geoLonCv)
+      call sym_trans_and_swap(G%geoLatCu, G%geoLatCv)
+      call sym_trans_and_swap(G%dxCu, G%dxCv)
+      call sym_trans_and_swap(G%dyCu, G%dxCv)
+  endif    
 
   call callTree_leave("set_grid_metrics_spherical()")
 end subroutine set_grid_metrics_spherical

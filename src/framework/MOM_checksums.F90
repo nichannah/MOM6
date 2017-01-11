@@ -30,7 +30,7 @@ use MOM_hor_index, only : hor_index_type
 implicit none ; private
 
 public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: write_to_netcdf, swap_md, sym_trans, sym_trans_active, uvchksum
+public :: write_to_netcdf, sym_trans, sym_trans_and_swap, sym_trans_active, uvchksum
 public :: MOM_checksums_init
 
 interface hchksum
@@ -70,12 +70,12 @@ interface is_NaN
   module procedure is_NaN_0d, is_NaN_1d, is_NaN_2d, is_NaN_3d
 end interface
 
-interface swap_md
-  module procedure swap_2d, swap_3d
-end interface
-
 interface sym_trans
   module procedure sym_trans_2d, sym_trans_3d
+end interface
+
+interface sym_trans_and_swap
+  module procedure sym_trans_and_swap_2d, sym_trans_and_swap_3d
 end interface
 
 interface write_to_netcdf
@@ -1315,6 +1315,8 @@ end function sym_trans_active
 subroutine sym_trans_2d(array)
   real, dimension(:,:), intent(inout) :: array !< The array to be transformed
 
+  real, allocatable, dimension(:,:) :: tmp
+
   if (.not. sym_trans_is_configured) then
     return
   endif
@@ -1325,17 +1327,20 @@ subroutine sym_trans_2d(array)
     call MOM_error(FATAL, 'sym_trans_2d: transform requires a square domain.')
   endif
 
-  ! Let's try straight transpose
-  ! array = transpose(array)
-
+  allocate(tmp(size(array, 1), size(array, 2)))
   ! Try a 90 degree rotation
-  call rot90_2d(array, 1)
+  call rot90_2d(array, tmp, 1)
+
+  array(:, :) = tmp(:, :)
+
+  deallocate(tmp)
 
 end subroutine sym_trans_2d
 
 subroutine sym_trans_3d(array)
   real, dimension(:,:,:), intent(inout) :: array !< The array to be transformed
 
+  real, allocatable, dimension(:,:,:) :: tmp
   integer :: k
 
   if (.not. sym_trans_is_configured) then
@@ -1344,52 +1349,55 @@ subroutine sym_trans_3d(array)
 
   sym_trans_is_active = .true.
 
-  if (size(array, 1) /= size(array, 2)) then
-    call MOM_error(FATAL, 'sym_trans_2d: transform requires a square domain.')
-  endif
+  allocate(tmp(size(array, 1), size(array, 2), size(array, 3)))
 
   ! Try a 90 degree rotation
-  call rot90_3d(array, 1)
+  call rot90_3d(array, tmp, 1)
 
-  !do k=lbound(array, 3), ubound(array, 3)
-  !  array(:, :, k) = transpose(array(:, :, k))
-  !  array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
-  !enddo
+  array(:, :, :) = tmp(:, :, :)
+
+  deallocate(tmp)
 
 end subroutine sym_trans_3d
 
-subroutine rot90_2d(array, nrot90)
-  real, dimension(:,:), intent(inout) :: array !< The array to be rotated
+subroutine rot90_2d(arrayIn, arrayOut, nrot90)
+  real, dimension(:,:), intent(in) :: arrayIn !< Array to be rotated
+  real, dimension(:,:), intent(out) :: arrayOut !< Rotated array
   integer, intent(in) :: nrot90 !< Number of 90 degree rotations to perform
 
   if (.not. nrot90 < 4) then
     call MOM_error(FATAL, 'rot90_2d: nrot should be < 4')
   endif
 
-  if (modulo(nrot90, 2) == 1) then
-    if (size(array, 1) /= size(array, 2)) then
-      call MOM_error(FATAL, 'rot90_2d: 90 deg rotation requires a square domain.')
+  if (modulo(nrot90, 2) == 2) then
+    if (size(arrayIn, 1) /= size(arrayOut, 1) .or. size(arrayIn, 2) /= size(arrayOut, 2)) then
+      call MOM_error(FATAL, 'rot90_2d: 180 deg rotation bad array shapes.')
+    endif
+  else
+    if (size(arrayIn, 1) /= size(arrayOut, 2) .or. size(arrayIn, 2) /= size(arrayOut, 1)) then
+      call MOM_error(FATAL, 'rot90_2d: 90 deg rotation bad array shapes.')
     endif
   endif
 
   if (nrot90 == 1) then
     ! transpose, reverse rows
-    array = transpose(array)
-    array(:, :) = array(:, ubound(array, 2):lbound(array, 2):-1)
+    arrayOut(:, :) = transpose(arrayIn(:, :))
+    arrayOut(:, :) = arrayOut(:, ubound(arrayOut, 2):lbound(arrayOut, 2):-1)
   elseif (nrot90 == 2) then
     ! reverse both rows and cols
-    array(:, :) = array(ubound(array, 1):lbound(array, 1):-1, &
-                        ubound(array, 2):lbound(array, 2):-1)
+    arrayOut(:, :) = arrayIn(ubound(arrayIn, 1):lbound(arrayIn, 1):-1, &
+                             ubound(arrayIn, 2):lbound(arrayIn, 2):-1)
   elseif (nrot90 == 3) then
     ! transpose, reverse cols
-    array = transpose(array)
-    array(:, :) = array(ubound(array, 1):lbound(array, 1):-1, :)
+    arrayOut(:,:) = transpose(arrayIn(:, :))
+    arrayOut(:, :) = arrayOut(ubound(arrayOut, 1):lbound(arrayOut, 1):-1, :)
   endif
 
 end subroutine rot90_2d
 
-subroutine rot90_3d(array, nrot90)
-  real, dimension(:,:,:), intent(inout) :: array !< The array to be rotated
+subroutine rot90_3d(arrayIn, arrayOut, nrot90)
+  real, dimension(:,:,:), intent(inout) :: arrayIn !< The array to be rotated
+  real, dimension(:,:,:), intent(inout) :: arrayOut !< Rotated array
   integer, intent(in) :: nrot90 !< Number of 90 degree rotations to perform
 
   integer :: k
@@ -1398,35 +1406,13 @@ subroutine rot90_3d(array, nrot90)
     call MOM_error(FATAL, 'rot90_2d: nrot should be < 4')
   endif
 
-  if (modulo(nrot90, 2) == 1) then
-    if (size(array, 1) /= size(array, 2)) then
-      call MOM_error(FATAL, 'rot90_2d: 90 deg rotation requires a square domain.')
-    endif
-  endif
-
-  if (nrot90 == 1) then
-    ! transpose, reverse rows
-    do k=lbound(array, 3), ubound(array, 3)
-      array(:, :, k) = transpose(array(:, :, k))
-      array(:, :, k) = array(:, ubound(array, 2):lbound(array, 2):-1, k)
-    enddo
-  elseif (nrot90 == 2) then
-    ! reverse both rows and cols
-    do k=lbound(array, 3), ubound(array, 3)
-        array(:, :, k) = array(ubound(array, 1):lbound(array, 1):-1, &
-                               ubound(array, 2):lbound(array, 2):-1, k)
-    enddo
-  elseif (nrot90 == 3) then
-    ! transpose, reverse cols
-    do k=lbound(array, 3), ubound(array, 3)
-      array(:, :, k) = transpose(array(:, :, k))
-      array(:, :, k) = array(ubound(array, 1):lbound(array, 1):-1, :, k)
-    enddo
-  endif
+  do k=lbound(arrayIn, 3), ubound(arrayIn, 3)
+     call rot90_2d(arrayIn(:, :, k), arrayOut(:, :, k), nrot90)
+  enddo
 
 end subroutine rot90_3d
 
-subroutine swap_2d(arrayA, arrayB)
+subroutine sym_trans_and_swap_2d(arrayA, arrayB)
   real, intent(inout), dimension(:,:) :: arrayA, arrayB
 
   real, allocatable, dimension(:,:) :: tmp
@@ -1435,21 +1421,22 @@ subroutine swap_2d(arrayA, arrayB)
     return
   endif
 
-  if (size(arrayA, 1) /= size(arrayB, 1) .or. size(arrayA, 2) /= size(arrayB, 2)) then
-    call MOM_error(FATAL, 'swap_2d: different shaped arrays cannot be swapped.')
+  if (size(arrayA, 1) /= size(arrayB, 2) .or. size(arrayA, 2) /= size(arrayB, 1)) then
+    call MOM_error(FATAL, 'sym_trans_and_swap_2d: arrays shapes imcompatible.')
   endif
 
   allocate(tmp(size(arrayA, 1), size(arrayA, 2)))
 
   tmp(:, :) = arrayA(:, :)
-  arrayA(:, :) = arrayB(:, :)
-  arrayB(:, :) = tmp(:, :)
+
+  call rot90_2d(arrayB, arrayA, 1)
+  call rot90_2d(tmp, arrayB, 1)
 
   deallocate(tmp)
 
-end subroutine swap_2d
+end subroutine sym_trans_and_swap_2d
 
-subroutine swap_3d(arrayA, arrayB)
+subroutine sym_trans_and_swap_3d(arrayA, arrayB)
   real, intent(inout), dimension(:,:,:) :: arrayA, arrayB
 
   real, allocatable, dimension(:,:,:) :: tmp
@@ -1458,21 +1445,22 @@ subroutine swap_3d(arrayA, arrayB)
     return
   endif
 
-  if (size(arrayA, 1) /= size(arrayB, 1) .or. &
-          size(arrayA, 2) /= size(arrayB, 2) .or. &
+  if (size(arrayA, 1) /= size(arrayB, 2) .or. &
+          size(arrayA, 2) /= size(arrayB, 1) .or. &
           size(arrayA, 3) /= size(arrayB, 3)) then
-    call MOM_error(FATAL, 'swap_3d: different shaped arrays cannot be swapped.')
+    call MOM_error(FATAL, 'sym_trans_and_swap_3d: array shapes incompatible.')
   endif
 
   allocate(tmp(size(arrayA, 1), size(arrayA, 2), size(arrayA, 3)))
 
   tmp(:, :, :) = arrayA(:, :, :)
-  arrayA(:, :, :) = arrayB(:, :, :)
-  arrayB(:, :, :) = tmp(:, :, :)
+
+  call rot90_3d(arrayB, arrayA, 1)
+  call rot90_3d(tmp, arrayB, 1)
 
   deallocate(tmp)
 
-end subroutine swap_3d
+end subroutine sym_trans_and_swap_3d
 
 subroutine write_to_netcdf3d(array, file_name)
   use netcdf
