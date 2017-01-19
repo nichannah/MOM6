@@ -2593,7 +2593,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
               CS%set_visc_CSp, CS%visc, dirs, CS%ntrunc)
     endif
   endif
-  stop 'XXXYYY'
   call callTree_waypoint("dynamics initialized (initialize_MOM)")
 
   call thickness_diffuse_init(Time, G, GV, param_file, diag, CS%CDp, CS%thickness_diffuse_CSp)

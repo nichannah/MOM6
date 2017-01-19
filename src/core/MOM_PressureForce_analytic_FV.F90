@@ -760,18 +760,18 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
                    fname=trim(fname))
       call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0, &
                    fname=trim(fname))
-      
+
       write(fname, "(A9,I1)") "int_pa_bk", k 
       call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0, &
                    fname=trim(fname))
       call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0, &
                    fname=trim(fname))
 
-      write(fname, "(A3,I1)") "IdC", k 
+      write(fname, "(A3,I1)") "IdC", k
       call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0, fname=trim(fname))
       call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0, fname=trim(fname))
 
-      write(fname, "(A2,I1)") "PF", k 
+      write(fname, "(A2,I1)") "PF", k
       call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0, &
                    fname=trim(fname))
       call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0, &

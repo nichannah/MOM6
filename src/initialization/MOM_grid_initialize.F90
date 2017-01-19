@@ -192,21 +192,21 @@ halo=1 ! AJA
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%dxCu(I,j) ; enddo ; enddo
   call uchksum(tempE,trim(parent)//': dxCu',G%HI, haloshift=halo, fname='dxC')
 
-  do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%dxCv(i,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': dxCv',G%HI, haloshift=halo, fname='dxC')
- 
-  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%dxBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': dxBu',G%HI, haloshift=halo, fname='dxBu')
- 
-  do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%dyT(i,j) ; enddo ; enddo
-  call hchksum(tempH,trim(parent)//': dyT',G%HI, haloshift=halo, fname='dyT')
- 
-  do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%dyCu(I,j) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': dyCu',G%HI, haloshift=halo, fname='dyC')
- 
   do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%dyCv(i,J) ; enddo ; enddo
   call vchksum(tempN,trim(parent)//': dyCv',G%HI, haloshift=halo, fname='dyC')
- 
+
+  do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%dxCv(i,J) ; enddo ; enddo
+  call vchksum(tempN,trim(parent)//': dxCv',G%HI, haloshift=halo, fname='dxC')
+
+  do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%dyCu(I,j) ; enddo ; enddo
+  call uchksum(tempE,trim(parent)//': dyCu',G%HI, haloshift=halo, fname='dyC')
+
+  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%dxBu(I,J) ; enddo ; enddo
+  call qchksum(tempQ,trim(parent)//': dxBu',G%HI, haloshift=halo, fname='dxBu')
+
+  do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%dyT(i,j) ; enddo ; enddo
+  call hchksum(tempH,trim(parent)//': dyT',G%HI, haloshift=halo, fname='dyT')
+
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%dyBu(I,J) ; enddo ; enddo
   call qchksum(tempQ,trim(parent)//': dyBu',G%HI, haloshift=halo, fname='dyBu')
 
@@ -215,22 +215,22 @@ halo=1 ! AJA
 
   do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%IdxCu(I,j) ; enddo ; enddo
   call uchksum(tempE,trim(parent)//': IdxCu',G%HI, haloshift=halo)
- 
+
+  do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%IdyCv(i,J) ; enddo ; enddo
+  call vchksum(tempN,trim(parent)//': IdyCv',G%HI, haloshift=halo)
+
   do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%IdxCv(i,J) ; enddo ; enddo
   call vchksum(tempN,trim(parent)//': IdxCv',G%HI, haloshift=halo)
- 
+
+  do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%IdyCu(I,j) ; enddo ; enddo
+  call uchksum(tempE,trim(parent)//': IdyCu',G%HI, haloshift=halo)
+
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%IdxBu(I,J) ; enddo ; enddo
   call qchksum(tempQ,trim(parent)//': IdxBu',G%HI, haloshift=halo)
 
   do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%IdyT(i,j) ; enddo ; enddo
   call hchksum(tempH,trim(parent)//': IdyT',G%HI, haloshift=halo)
- 
-  do I=IsdB,IedB ; do j=jsd,jed ; tempE(I,j) = G%IdyCu(I,j) ; enddo ; enddo
-  call uchksum(tempE,trim(parent)//': IdyCu',G%HI, haloshift=halo)
- 
-  do i=isd,ied ; do J=JsdB,JedB ; tempN(i,J) = G%IdyCv(i,J) ; enddo ; enddo
-  call vchksum(tempN,trim(parent)//': IdyCv',G%HI, haloshift=halo)
- 
+
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%IdyBu(I,J) ; enddo ; enddo
   call qchksum(tempQ,trim(parent)//': IdyBu',G%HI, haloshift=halo)
 
@@ -800,8 +800,8 @@ subroutine set_grid_metrics_spherical(G, param_file)
   if (sym_trans_active()) then
       call sym_trans_and_swap(G%geoLonCu, G%geoLonCv)
       call sym_trans_and_swap(G%geoLatCu, G%geoLatCv)
-      call sym_trans_and_swap(G%dxCu, G%dxCv)
-      call sym_trans_and_swap(G%dyCu, G%dxCv)
+      call sym_trans_and_swap(G%dxCu, G%dyCv)
+      call sym_trans_and_swap(G%dxCv, G%dyCu)
   endif    
 
   call callTree_leave("set_grid_metrics_spherical()")
