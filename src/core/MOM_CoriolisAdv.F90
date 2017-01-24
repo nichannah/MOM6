@@ -14,7 +14,8 @@ use MOM_open_boundary, only : ocean_OBC_type
 use MOM_string_functions, only : uppercase
 use MOM_variables,     only : accel_diag_ptrs
 use MOM_verticalGrid,  only : verticalGrid_type
-use MOM_checksums,     only : do_transform_input, bchksum, uchksum, vchksum
+use MOM_checksums,     only : bchksum, uchksum, vchksum
+use MOM_transform_test, only : do_transform_on_this_pe
 
 implicit none ; private
 
@@ -219,7 +220,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
   pos_sign = 1.0
   neg_sign = -1.0
 
-  if (do_transform_input()) then
+  if (do_transform_on_this_pe()) then
     pos_sign = -1.0
     neg_sign = 1.0
   endif
@@ -702,9 +703,9 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
 !$OMP end parallel
 
   if (.false.) then
-    call bchksum(q, 'q in CorAdCalc', G%HI, fname='q_cor')
-    call uchksum(KEx, 'KEx in CorAdCalc', G%HI, fname='KEx')
-    call vchksum(KEy, 'KEy in CorAdCalc', G%HI, fname='KEy')
+    call bchksum(q, 'q in CorAdCalc', G%HI)
+    call uchksum(KEx, 'KEx in CorAdCalc', G%HI)
+    call vchksum(KEy, 'KEy in CorAdCalc', G%HI)
   endif
 
   ! Here the various Coriolis-related derived quantities are offered for averaging.

@@ -4,8 +4,8 @@ module MOM_fixed_initialization
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, chksum
-use MOM_checksums, only : hchksum_pair
+use MOM_checksums, only : hchksum, Bchksum
+use MOM_checksums, only : hchksum_pair, uvchksum_pair
 use MOM_domains, only : pass_var
 use MOM_dyn_horgrid, only : dyn_horgrid_type
 use MOM_error_handler, only : MOM_mesg, MOM_error, FATAL, WARNING, is_root_pe
@@ -94,11 +94,11 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
   call open_boundary_impose_land_mask(OBC, G, G%areaCu, G%areaCv)
 
   if (debug) then
-    call hchksum(G%bathyT, 'MOM_initialize_fixed: depth', G%HI, haloshift=1, fname='depth')
+    call hchksum(G%bathyT, 'MOM_initialize_fixed: depth', G%HI, haloshift=1)
     call hchksum(G%mask2dT, 'MOM_initialize_fixed: mask2dT ', G%HI)
-    call uchksum(G%mask2dCu, 'MOM_initialize_fixed: mask2dCu ', G%HI, fname='mask2d')
-    call vchksum(G%mask2dCv, 'MOM_initialize_fixed: mask2dCv ', G%HI, fname='mask2d')
-    call qchksum(G%mask2dBu, 'MOM_initialize_fixed: mask2dBu ', G%HI)
+    call uvchksum_pair(G%mask2dCu, 'MOM_initialize_fixed: mask2dCu ', &
+                       G%mask2dCv, 'MOM_initialize_fixed: mask2dCv ', G%HI)
+    call Bchksum(G%mask2dBu, 'MOM_initialize_fixed: mask2dBu ', G%HI)
   endif
 
 ! Modulate geometric scales according to geography.
@@ -143,7 +143,7 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
 !   Calculate the components of grad f (beta)
   call MOM_calculate_grad_Coriolis(G%dF_dx, G%dF_dy, G)
   if (debug) then
-    call qchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI, fname='coriolis')
+    call Bchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI)
     call hchksum_pair(G%dF_dx, "MOM_initialize_fixed: dF_dx ", &
                       G%dF_dy, "MOM_initialize_fixed: dF_dy ", G%HI)
   endif

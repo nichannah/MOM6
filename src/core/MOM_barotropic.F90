@@ -92,7 +92,7 @@ module MOM_barotropic
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, uchksum, vchksum, bchksum, chksum
-use MOM_checksums, only : do_transform_input
+use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, enable_averaging
@@ -684,9 +684,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   u_cor_sign = 1.0
   v_cor_sign = -1.0
 
-  if (do_transform_input()) then
-      u_cor_sign = -1.0
-      v_cor_sign = 1.0
+  if (do_transform_on_this_pe()) then
+    u_cor_sign = -1.0
+    v_cor_sign = 1.0
   endif
 
 
@@ -3226,9 +3226,9 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
   enddo
 
   if (CS%debug) then
-    call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1, fname='frhat')
-    call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1, fname='frhat')
-    call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1, fname='btcalc_h')
+    call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1)
+    call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1)
+    call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1)
   endif
 
 end subroutine btcalc
