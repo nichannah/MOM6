@@ -484,7 +484,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   integer :: ioff_bk, joff_bk
   integer :: i, j, k, n, ib, jb
   integer :: PRScheme
-  character(len=16) :: fname
 
   is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec ; nz = G%ke
   nkmb=GV%nk_rho_varies
@@ -748,38 +747,22 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       enddo ; enddo
 
       if (.false.) then
-        write(fname, "(A5,I1)") "pa_bk", k 
-        call hchksum(pa_bk(:, :),"pa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
-        write(fname, "(A11,I1)") "intz_dpa_bk", k 
-        call hchksum(intz_dpa_bk(:, :),"intz_dpa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
-        write(fname, "(A1,I1)") "h", k 
-        call hchksum(h(:, :, k),"h", G%HI,haloshift=0, fname=trim(fname))
-        write(fname, "(A1,I1)") "e", k 
-        call hchksum(e(:, :, k),"e", G%HI,haloshift=0, fname=trim(fname))
+        call hchksum(pa_bk(:, :),"pa_bk", G%HI,haloshift=0)
+        call hchksum(intz_dpa_bk(:, :),"intz_dpa_bk", G%HI,haloshift=0)
+        call hchksum(h(:, :, k),"h", G%HI,haloshift=0)
+        call hchksum(e(:, :, k),"e", G%HI,haloshift=0)
 
-        write(fname, "(A10,I1)") "int_dpa_bk", k 
-        call uchksum(intx_dpa_bk(:, :),"intx_dpa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
-        call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
+        call uchksum(intx_dpa_bk(:, :),"intx_dpa_bk", G%HI,haloshift=0)
+        call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0)
 
-        write(fname, "(A9,I1)") "int_pa_bk", k 
-        call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
-        call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0, &
-                     fname=trim(fname))
+        call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0)
+        call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0)
 
-        write(fname, "(A3,I1)") "IdC", k
-        call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0, fname=trim(fname))
-        call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0, fname=trim(fname))
+        call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0)
+        call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0)
 
-        write(fname, "(A2,I1)") "PF", k
-        call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0, &
-                     fname=trim(fname))
-        call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0, &
-                     fname=trim(fname))
+        call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0)
+        call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0)
       endif
     enddo
 

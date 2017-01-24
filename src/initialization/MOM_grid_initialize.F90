@@ -68,7 +68,7 @@ module MOM_grid_initialize
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, hchksum_pair
 use MOM_checksums, only : hchksum_pair, uvchksum_pair, Bchksum_pair
-use MOM_checksums, only : do_transform_input, transform_input, transform_and_swap_input
+use MOM_transform_test, only : do_transform_on_this_pe, transform, transform_and_swap
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -223,15 +223,15 @@ subroutine grid_metrics_chksum(parent, G)
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%IareaBu(I,J) ; enddo ; enddo
   call qchksum(tempQ,trim(parent)//': IareaBu',G%HI, haloshift=halo)
 
-  call hchksum(G%geoLonT,trim(parent)//': geoLonT',G%HI, haloshift=halo, fname='geoLonT')
+  call hchksum(G%geoLonT,trim(parent)//': geoLonT',G%HI, haloshift=halo)
 
-  call hchksum(G%geoLatT,trim(parent)//': geoLatT',G%HI, haloshift=halo, fname='geoLatT')
+  call hchksum(G%geoLatT,trim(parent)//': geoLatT',G%HI, haloshift=halo)
 
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLonBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLonBu',G%HI, haloshift=halo, fname='geoLonBu')
+  call qchksum(tempQ,trim(parent)//': geoLonBu',G%HI, haloshift=halo)
 
   do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLatBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLatBu',G%HI, haloshift=halo, fname='geoLatBu')
+  call qchksum(tempQ,trim(parent)//': geoLatBu',G%HI, haloshift=halo)
 
   call uvchksum_pair(G%geoLonCu, trim(parent)//': geoLonCu', &
                      G%geoLonCv, trim(parent)//': geoLonCv', G%HI, haloshift=halo)
@@ -725,11 +725,11 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
   enddo; enddo
 
-  if (do_transform_input()) then
-      call transform_input(G%geoLonT)
-      call transform_input(G%geoLatT)
-      call transform_input(G%areaT)
-      call transform_and_swap_input(G%dxT, G%dyT)
+  if (do_transform_on_this_pe()) then
+    call transform(G%geoLonT)
+    call transform(G%geoLatT)
+    call transform(G%areaT)
+    call transform_and_swap(G%dxT, G%dyT)
   endif
 
   do J=JsdB,JedB ; do I=IsdB,IedB
@@ -744,11 +744,11 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%areaBu(I,J) = G%dxBu(I,J) * G%dyBu(I,J)
   enddo; enddo
 
-  if (do_transform_input()) then
-      call transform_input(G%geoLonBu)
-      call transform_input(G%geoLatBu)
-      call transform_input(G%areaBu)
-      call transform_and_swap_input(G%dxBu, G%dyBu)
+  if (do_transform_on_this_pe()) then
+    call transform(G%geoLonBu)
+    call transform(G%geoLatBu)
+    call transform(G%areaBu)
+    call transform_and_swap(G%dxBu, G%dyBu)
   endif
 
   do J=JsdB,JedB ; do i=isd,ied
@@ -773,11 +773,11 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyCu(I,j) = G%Rad_Earth * dLat*PI_180
   enddo; enddo
 
-  if (do_transform_input()) then
-      call transform_and_swap_input(G%geoLonCu, G%geoLonCv)
-      call transform_and_swap_input(G%geoLatCu, G%geoLatCv)
-      call transform_and_swap_input(G%dxCu, G%dyCv)
-      call transform_and_swap_input(G%dxCv, G%dyCu)
+  if (do_transform_on_this_pe()) then
+    call transform_and_swap(G%geoLonCu, G%geoLonCv)
+    call transform_and_swap(G%geoLatCu, G%geoLatCv)
+    call transform_and_swap(G%dxCu, G%dyCv)
+    call transform_and_swap(G%dxCv, G%dyCu)
   endif
 
   call callTree_leave("set_grid_metrics_spherical()")

@@ -4,7 +4,7 @@ module MOM_grid
 ! This file is part of MOM6. See LICENSE.md for the license.
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
-use MOM_checksums, only : do_transform_input
+use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
@@ -442,7 +442,7 @@ subroutine set_first_direction(G, y_first)
   type(ocean_grid_type), intent(inout) :: G
   integer,               intent(in) :: y_first
 
-  if (do_transform_input()) then
+  if (do_transform_on_this_pe()) then
     G%first_direction = y_first + 1
   else
     G%first_direction = y_first

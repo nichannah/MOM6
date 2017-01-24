@@ -830,13 +830,13 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
     if (associated(visc%Ray_v)) call uchksum(visc%Ray_v,"Ray u",G%HI,haloshift=0)
     if (associated(visc%Ray_u)) call vchksum(visc%Ray_u,"Ray v",G%HI,haloshift=0)
     if (associated(visc%kv_bbl_v)) call uchksum(visc%kv_bbl_v,"kv_bbl_u", &
-                                                G%HI,haloshift=0, fname="kv_bbl")
+                                                G%HI,haloshift=0)
     if (associated(visc%kv_bbl_u)) call vchksum(visc%kv_bbl_u,"kv_bbl_v",G%HI, &
-                                                haloshift=0, fname="kv_bbl")
+                                                haloshift=0)
     if (associated(visc%bbl_thick_v)) call uchksum(visc%bbl_thick_v,"bbl_thick_u", &
-                                                   G%HI,haloshift=0, fname="bbl_thick")
+                                                   G%HI,haloshift=0)
     if (associated(visc%bbl_thick_u)) call vchksum(visc%bbl_thick_u,"bbl_thick_v", &
-                                                   G%HI,haloshift=0, fname="bbl_thick")
+                                                   G%HI,haloshift=0)
   endif
 
 end subroutine set_viscous_BBL

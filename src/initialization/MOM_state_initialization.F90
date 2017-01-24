@@ -4,6 +4,7 @@ module MOM_state_initialization
 ! This file is part of MOM6. See LICENSE.md for the license.
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, chksum
+use MOM_checksums, only : uvchksum_pair
 use MOM_coms, only : max_across_PEs, min_across_PEs
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock, only :  CLOCK_ROUTINE, CLOCK_LOOP
@@ -349,8 +350,10 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
     end select
 
     call pass_vector(u, v, G%Domain)
-    if (debug) call uchksum(u, "MOM_initialize_state: u ", G%HI, haloshift=1)
-    if (debug) call vchksum(v, "MOM_initialize_state: v ", G%HI, haloshift=1)
+    if (debug) then
+      call uvchksum_pair(u, "MOM_initialize_state: u ", &
+                         v, "MOM_initialize_state: v ", G%HI, haloshift=1)
+    endif
 
 !   Optionally convert the thicknesses from m to kg m-2.  This is particularly
 ! useful in a non-Boussinesq model.

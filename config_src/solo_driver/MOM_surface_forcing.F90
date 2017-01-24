@@ -65,7 +65,6 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
-use MOM_checksums,           only : do_transform_input, transform_input, transform_and_swap_input
 use MOM_constants,           only : hlv, hlf
 use MOM_cpu_clock,           only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,           only : CLOCK_MODULE
@@ -104,6 +103,7 @@ use SCM_CVmix_tests,         only : SCM_CVmix_tests_buoyancy_forcing
 use SCM_CVmix_tests,         only : SCM_CVmix_tests_CS
 use BFB_surface_forcing,    only : BFB_buoyancy_forcing
 use BFB_surface_forcing,    only : BFB_surface_forcing_init, BFB_surface_forcing_CS
+use MOM_transform_test,     only : do_transform_on_this_pe, transform, undo_transform, transform_and_swap
 
 use data_override_mod, only : data_override_init, data_override
 
@@ -490,10 +490,10 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   !set the steady surface wind stresses, in units of Pa.
   PI = 4.0*atan(1.0)
 
-  if (do_transform_input()) then
-    ! Need to undo the transform. FIXME: do reverse properly
+  if (do_transform_on_this_pe()) then
+    ! Need to undo the transform.
     allocate(tmp(size(G%geoLatCv, 2), size(G%geoLatCv, 1)))
-    tmp(:, :) = transpose(G%geoLatCv(:, :))
+    call undo_transform(G%geoLatCv(:, :), tmp(:, :))
     do j=js,je ; do I=Isq,Ieq
       fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(tmp(I,j)-CS%South_lat) / &
                                         CS%len_lat))
@@ -509,8 +509,8 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
     fluxes%tauy(i,J) = 0.0
   enddo ; enddo
 
-  if (do_transform_input()) then
-    call transform_and_swap_input(fluxes%taux, fluxes%tauy)
+  if (do_transform_on_this_pe()) then
+    call transform_and_swap(fluxes%taux, fluxes%tauy)
   endif
 
   call callTree_leave("wind_forcing_2gyre")

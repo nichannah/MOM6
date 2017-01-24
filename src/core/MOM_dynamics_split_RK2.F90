@@ -21,7 +21,7 @@ use MOM_domains,           only : MOM_domains_init
 use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PAIR
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
-use MOM_checksums,         only : MOM_checksums_init, hchksum, uchksum, vchksum
+use MOM_checksums,         only : hchksum, uchksum, vchksum
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -758,16 +758,11 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   if (CS%debug) then
     call uchksum(CS%diffu, 'After horizontal_viscosity: diffu', G%HI, haloshift=1)
     call vchksum(CS%diffv, 'After horizontal_viscosity: diffv', G%HI, haloshift=1)
-    call uchksum(u_av, 'Before CorAdCalc: u_av', G%HI, haloshift=1, &
-                 fname='u_av')
-    call vchksum(v_av, 'Before CorAdCalc: v_av', G%HI, haloshift=1, &
-                 fname='v_av')
-    call hchksum(h_av, 'Before CorAdCalc: h_av', G%HI, haloshift=0, &
-                 fname='h_av')
-    call uchksum(uh, 'Before CorAdCalc: uh', G%HI, haloshift=1, &
-                 fname='uh')
-    call vchksum(vh, 'Before CorAdCalc: vh', G%HI, haloshift=1, &
-                 fname='vh')
+    call uchksum(u_av, 'Before CorAdCalc: u_av', G%HI, haloshift=1)
+    call vchksum(v_av, 'Before CorAdCalc: v_av', G%HI, haloshift=1)
+    call hchksum(h_av, 'Before CorAdCalc: h_av', G%HI, haloshift=0)
+    call uchksum(uh, 'Before CorAdCalc: uh', G%HI, haloshift=1)
+    call vchksum(vh, 'Before CorAdCalc: vh', G%HI, haloshift=1)
   endif
 
 ! CAu = -(f+zeta_av)/h_av vh + d/dx KE_av
@@ -780,10 +775,8 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
 ! Calculate the momentum forcing terms for the barotropic equations.
 
   if (CS%debug) then
-    call uchksum(CS%Cau, 'After CorAdCalc: CAu', G%HI, haloshift=1, &
-                 fname='CA')
-    call vchksum(CS%Cav, 'After CorAdCalc: CAv', G%HI, haloshift=1, &
-                 fname='CA')
+    call uchksum(CS%Cau, 'After CorAdCalc: CAu', G%HI, haloshift=1)
+    call vchksum(CS%Cav, 'After CorAdCalc: CAv', G%HI, haloshift=1)
   endif
 
 ! u_bc_accel = CAu + PFu + diffu(u[n-1])
