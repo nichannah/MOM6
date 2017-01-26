@@ -725,13 +725,6 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
   enddo; enddo
 
-  if (do_transform_on_this_pe()) then
-    call transform(G%geoLonT)
-    call transform(G%geoLatT)
-    call transform(G%areaT)
-    call transform_and_swap(G%dxT, G%dyT)
-  endif
-
   do J=JsdB,JedB ; do I=IsdB,IedB
     G%geoLonBu(I,J) = grid_lonB(I)
     G%geoLatBu(I,J) = grid_latB(J)
@@ -743,13 +736,6 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyBu(I,J) = G%Rad_Earth * dLat*PI_180
     G%areaBu(I,J) = G%dxBu(I,J) * G%dyBu(I,J)
   enddo; enddo
-
-  if (do_transform_on_this_pe()) then
-    call transform(G%geoLonBu)
-    call transform(G%geoLatBu)
-    call transform(G%areaBu)
-    call transform_and_swap(G%dxBu, G%dyBu)
-  endif
 
   do J=JsdB,JedB ; do i=isd,ied
     G%geoLonCv(i,J) = grid_LonT(i)
@@ -774,6 +760,16 @@ subroutine set_grid_metrics_spherical(G, param_file)
   enddo; enddo
 
   if (do_transform_on_this_pe()) then
+    call transform(G%geoLonT)
+    call transform(G%geoLatT)
+    call transform(G%areaT)
+    call transform_and_swap(G%dxT, G%dyT)
+
+    call transform(G%geoLonBu)
+    call transform(G%geoLatBu)
+    call transform(G%areaBu)
+    call transform_and_swap(G%dxBu, G%dyBu)
+
     call transform_and_swap(G%geoLonCu, G%geoLonCv)
     call transform_and_swap(G%geoLatCu, G%geoLatCv)
     call transform_and_swap(G%dxCu, G%dyCv)
