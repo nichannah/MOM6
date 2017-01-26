@@ -92,6 +92,7 @@ module MOM_barotropic
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum, uchksum, vchksum, bchksum, chksum
+use MOM_checksums, only : uvchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, query_averaging_enabled, register_diag_field
@@ -3226,8 +3227,8 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
   enddo
 
   if (CS%debug) then
-    call uchksum(CS%frhatu, "btcalc frhatu",G%HI,haloshift=1)
-    call vchksum(CS%frhatv, "btcalc frhatv",G%HI,haloshift=1)
+    call uvchksum_pair(CS%frhatu, "btcalc frhatu", &
+                       CS%frhatv, "btcalc frhatv", G%HI,haloshift=1)
     call hchksum(GV%H_to_m*h, "btcalc h",G%HI,haloshift=1)
   endif
 
