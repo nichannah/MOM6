@@ -23,34 +23,46 @@ module MOM_transform_test
 use MOM_coms, only : PE_here, root_PE
 use MOM_error_handler, only : MOM_error, FATAL
 use MOM_file_parser, only : log_version, get_param, param_file_type
+use MOM_grid,        only : ocean_grid_type
 
 use mpp_mod, only : mpp_gather
 use ensemble_manager_mod, only : get_ensemble_size, get_ensemble_id, get_ensemble_pelist
 
 implicit none ; private
 
-public :: MOM_transform_test_init
-public :: transform, transform_and_swap, do_transform_test, do_transform_on_this_pe
+public :: MOM_transform_test_init, transform_test_start
+public :: transform, transform_and_swap, transform_allocatable
+public :: do_transform_test, do_transform_on_this_pe
 public :: transform_compare, undo_transform
+public :: transform_grid_and_inputs
 
 interface transform
   module procedure transform_2d, transform_3d
 end interface
 
-interface transform_compare
-  module procedure transform_compare_2d, transform_compare_3d
+interface transform_allocatable
+  module procedure transform_allocatable_2d
 end interface
 
 interface undo_transform
   module procedure undo_transform_2d, undo_transform_3d
 end interface
 
+interface transform_compare
+  module procedure transform_compare_2d, transform_compare_3d
+end interface
+
 interface transform_and_swap
   module procedure transform_and_swap_2d, transform_and_swap_3d
 end interface
 
+!> Whether or not we're in a transform test run
 logical :: transform_test = .false.
+!> Whether the transform being done on this PE?
 logical :: transform_on_this_pe = .false.
+!> Whether the test has started. No comparisons are done before this
+! flag is set.
+logical :: test_started = .false.
 
 contains
 
@@ -100,9 +112,23 @@ subroutine MOM_transform_test_init(param_file)
 
   endif
 
+  test_started = .false.
+
 end subroutine MOM_transform_test_init
 
-! =====================================================================
+!> Transform all grid arrays for the purposes of the transform test.
+subroutine transform_grid_and_inputs(G)
+  type(ocean_grid_type), intent(inout) :: G !< The horizontal grid type
+
+  call transform_allocatable(G%dxT)
+
+end subroutine transform_grid_and_inputs
+
+subroutine transform_test_start()
+
+  test_started = .true.
+
+end subroutine transform_test_start
 
 function do_transform_on_this_pe()
     logical :: do_transform_on_this_pe
@@ -145,6 +171,37 @@ subroutine transform_2d(array)
   deallocate(tmp)
 
 end subroutine transform_2d
+
+ !< Transform an allocatable array, after this call input may have 
+ ! a different shape.
+subroutine transform_allocatable_2d(array)
+  real, dimension(:,:), allocatable, intent(inout) :: array
+
+  real, allocatable, dimension(:,:) :: tmp
+  integer :: isz, jsz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_2d: should not be called on this PE.')
+  endif
+
+  isz = size(array, 1)
+  jsz = size(array, 2)
+
+  allocate(tmp(isz, jsz))
+  tmp(:, :) = array(:, :)
+  deallocate(array)
+  allocate(array(jsz, isz))
+
+  if (.true.) then
+      call transpose_2d(tmp, array)
+  else
+      ! Try a 90 degree rotation
+      call rot90_2d(tmp, array, 1)
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_2d
 
 subroutine undo_transform_2d(original, undone)
   real, dimension(:,:), intent(in) :: original  !< The transformed array
@@ -292,6 +349,10 @@ subroutine transform_compare_2d(arrayA, arrayB)
 
   integer :: ret
 
+  if (.not. test_started) then
+    return
+  endif
+
   if (transform_on_this_pe) then
     allocate(tmp(size(arrayA, 2), size(arrayA, 1)))
     call undo_transform_2d(arrayA, tmp)
@@ -324,6 +385,10 @@ subroutine transform_compare_3d(arrayA, arrayB)
   real, allocatable, dimension(:, :, :) :: tmp
 
   integer :: ret
+
+  if (.not. test_started) then
+    return
+  endif
 
   if (transform_on_this_pe) then
     allocate(tmp(size(arrayA, 2), size(arrayA, 1), size(arrayA, 3)))

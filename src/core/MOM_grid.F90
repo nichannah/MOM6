@@ -3,7 +3,7 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : hchksum, qchksum, hchksum_pair, uvchksum_pair, bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_hor_index, only : hor_index_type, hor_index_init
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
@@ -16,6 +16,7 @@ implicit none ; private
 #include <MOM_memory.h>
 
 public MOM_grid_init, MOM_grid_end, set_derived_metrics, set_first_direction
+public grid_metrics_chksum
 public isPointInCell, hor_index_type
 
 !> Ocean grid type. See mom_grid for details.
@@ -522,6 +523,64 @@ subroutine allocate_metrics(G)
   allocate(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
 
 end subroutine allocate_metrics
+
+!> grid_metrics_chksum performs a set of checksums on metrics on the grid for
+!!   debugging.
+subroutine grid_metrics_chksum(parent, G)
+  character(len=*),      intent(in) :: parent  !< A string identifying the caller
+  type(ocean_grid_type), intent(in) :: G !< The horizontal grid type
+
+  integer :: halo
+
+  halo = min(G%ied-G%isd, G%jed-G%jsd, 1)
+
+  call hchksum_pair(G%dxT, trim(parent)//': dxT', &
+                    G%dyT, trim(parent)//': dyT', G%HI, haloshift=halo)
+
+  call hchksum_pair(G%IdxT, trim(parent)//': IdxT', &
+                    G%IdyT, trim(parent)//': IdyT', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%dxCu, trim(parent)//': dxCu', &
+                     G%dyCv, trim(parent)//': dyCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%IdxCu, trim(parent)//': IdxCu', &
+                     G%IdyCv, trim(parent)//': IdyCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%dxCv, trim(parent)//': dxCv', &
+                     G%dyCu, trim(parent)//': dyCu', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%IdxCv, trim(parent)//': IdxCv', &
+                     G%IdyCu, trim(parent)//': IdyCu', G%HI, haloshift=halo)
+
+  call Bchksum_pair(G%dxBu, trim(parent)//': dxBu', &
+                    G%dyBu, trim(parent)//': dyBu', G%HI, haloshift=halo)
+
+  call Bchksum_pair(G%IdxBu, trim(parent)//': IdxBu', &
+                    G%IdyBu, trim(parent)//': IdyBu', G%HI, haloshift=halo)
+
+  call hchksum(G%areaT, trim(parent)//': areaT',G%HI, haloshift=halo)
+
+  call qchksum(G%areaBu ,trim(parent)//': areaBu',G%HI, haloshift=halo)
+
+  call hchksum(G%IareaT, trim(parent)//': IareaT',G%HI, haloshift=halo)
+
+  call qchksum(G%IareaBu, trim(parent)//': IareaBu',G%HI, haloshift=halo)
+
+  call hchksum(G%geoLonT, trim(parent)//': geoLonT',G%HI, haloshift=halo)
+
+  call hchksum(G%geoLatT, trim(parent)//': geoLatT',G%HI, haloshift=halo)
+
+  call qchksum(G%geoLonBu, trim(parent)//': geoLonBu',G%HI, haloshift=halo)
+
+  call qchksum(G%geoLatBu, trim(parent)//': geoLatBu',G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%geoLonCu, trim(parent)//': geoLonCu', &
+                     G%geoLonCv, trim(parent)//': geoLonCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
+                     G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
+
+end subroutine grid_metrics_chksum
 
 !> Release memory used by the ocean_grid_type and related structures.
 subroutine MOM_grid_end(G)

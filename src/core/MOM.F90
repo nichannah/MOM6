@@ -24,7 +24,8 @@ use MOM_variables, only: thermo_var_ptrs
 
 ! Infrastructure modules
 use MOM_checksums,            only : MOM_checksums_init, hchksum, uchksum, vchksum
-use MOM_transform_test,       only : MOM_transform_test_init
+use MOM_transform_test,       only : MOM_transform_test_init, transform_grid_and_inputs, transform_test_start
+use MOM_transform_test,       only : do_transform_test, do_transform_on_this_pe
 use MOM_checksum_packages,    only : MOM_thermo_chksum, MOM_state_chksum, MOM_accel_chksum
 use MOM_cpu_clock,            only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,            only : CLOCK_COMPONENT, CLOCK_SUBCOMPONENT
@@ -93,6 +94,7 @@ use MOM_EOS,                   only : gsw_sp_from_sr, gsw_pt_from_ct
 use MOM_EOS,                   only : calculate_density
 use MOM_error_checking,        only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
+use MOM_grid,                  only : grid_metrics_chksum
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
 use MOM_hor_index,             only : hor_index_type, hor_index_init
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
@@ -2227,6 +2229,14 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call MOM_grid_init(G, param_file, HI, bathymetry_at_vel=bathy_at_vel)
   call copy_dyngrid_to_MOM_grid(dG, G)
   call destroy_dyn_horgrid(dG)
+
+  if (do_transform_test()) then
+    if (do_transform_on_this_pe()) then
+      call transform_grid_and_inputs(G)
+    endif
+    call transform_test_start()
+  endif
+  call grid_metrics_chksum("initialize_MOM", G)
 
   ! Set a few remaining fields that are specific to the ocean grid type.
   call set_first_direction(G, first_direction)
