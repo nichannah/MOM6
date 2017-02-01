@@ -58,6 +58,8 @@ use diag_manager_mod, only : register_static_field_fms=>register_static_field
 use diag_manager_mod, only : get_diag_field_id_fms=>get_diag_field_id
 use diag_manager_mod, only : DIAG_FIELD_NOT_FOUND
 
+use MOM_transform_test,       only : do_transform_on_this_pe
+
 implicit none ; private
 
 #define __DO_SAFETY_CHECKS__
@@ -235,6 +237,15 @@ subroutine set_axes_info(G, GV, param_file, diag_cs, set_vertical)
     id_yq = diag_axis_init('yq', G%gridLatB(G%jsg:G%jeg), G%y_axis_units, 'y', &
               'q point nominal latitude', Domain2=G%Domain%mpp_domain)
   endif
+
+  if (do_transform_on_this_pe()) then
+    print*, 'trans shape(G%gridLonT):', shape(G%gridLonT)
+    print*, 'trans shape(G%gridLatT):', shape(G%gridLatT)
+  else
+    print*, 'shape(G%gridLonT):', shape(G%gridLonT)
+    print*, 'shape(G%gridLatT):', shape(G%gridLatT)
+  endif
+
   id_xh = diag_axis_init('xh', G%gridLonT(G%isg:G%ieg), G%x_axis_units, 'x', &
               'h point nominal longitude', Domain2=G%Domain%mpp_domain)
   id_yh = diag_axis_init('yh', G%gridLatT(G%jsg:G%jeg), G%y_axis_units, 'y', &
@@ -574,6 +585,9 @@ subroutine post_data_1d_k(diag_field_id, field, diag_cs, is_static)
   call assert(diag_field_id < diag_cs%next_free_diag_id, &
               'post_data_1d_k: Unregistered diagnostic id')
   diag => diag_cs%diags(diag_field_id)
+  if (do_transform_on_this_pe()) then
+    print*, 'diag%debug_str: ', diag%debug_str
+  endif
   do while (associated(diag))
     if (is_stat) then
       used = send_data(diag%fms_diag_id, field)
@@ -609,6 +623,13 @@ subroutine post_data_2d(diag_field_id, field, diag_cs, is_static, mask)
   call assert(diag_field_id < diag_cs%next_free_diag_id, &
               'post_data_2d: Unregistered diagnostic id')
   diag => diag_cs%diags(diag_field_id)
+  if (do_transform_on_this_pe()) then
+    print*, 'diag%debug_str: ', diag%debug_str
+    print*, 'field shape', shape(field)
+    if (present(mask)) then
+      print*, 'mask shape', shape(mask)
+    endif
+  endif
   do while (associated(diag))
      call post_data_2d_low(diag, field, diag_cs, is_static, mask)
     diag => diag%next
@@ -736,6 +757,9 @@ subroutine post_data_3d(diag_field_id, field, diag_cs, is_static, mask)
   call assert(diag_field_id < diag_cs%next_free_diag_id, &
               'post_data_3d: Unregistered diagnostic id')
   diag => diag_cs%diags(diag_field_id)
+  if (do_transform_on_this_pe()) then
+    print*, 'diag%debug_str: ', diag%debug_str
+  endif
   do while (associated(diag))
     call assert(associated(diag%axes), 'post_data_3d: axes is not associated')
 

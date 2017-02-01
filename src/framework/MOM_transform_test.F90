@@ -23,34 +23,53 @@ module MOM_transform_test
 use MOM_coms, only : PE_here, root_PE
 use MOM_error_handler, only : MOM_error, FATAL
 use MOM_file_parser, only : log_version, get_param, param_file_type
+use MOM_error_handler,  only : callTree_enter, callTree_leave
 
 use mpp_mod, only : mpp_gather
 use ensemble_manager_mod, only : get_ensemble_size, get_ensemble_id, get_ensemble_pelist
 
 implicit none ; private
 
-public :: MOM_transform_test_init
-public :: transform, transform_and_swap, do_transform_test, do_transform_on_this_pe
+public :: MOM_transform_test_init, transform_test_start, transform_test_started
+public :: transform, transform_and_swap
+public :: transform_allocatable, transform_allocatable_and_swap
+public :: do_transform_test, do_transform_on_this_pe
 public :: transform_compare, undo_transform
 
 interface transform
   module procedure transform_2d, transform_3d
 end interface
 
-interface transform_compare
-  module procedure transform_compare_2d, transform_compare_3d
+interface transform_allocatable
+  module procedure transform_allocatable_2d, transform_allocatable_3d, &
+                   transform_allocatable_4d
+end interface
+
+interface transform_allocatable_and_swap
+  module procedure transform_allocatable_and_swap_1d, &
+                   transform_allocatable_and_swap_2d, &
+                   transform_allocatable_and_swap_3d
 end interface
 
 interface undo_transform
   module procedure undo_transform_2d, undo_transform_3d
 end interface
 
+interface transform_compare
+  module procedure transform_compare_1d, transform_compare_2d, transform_compare_3d
+end interface
+
 interface transform_and_swap
   module procedure transform_and_swap_2d, transform_and_swap_3d
 end interface
 
+!> Whether or not we're in a transform test run
 logical :: transform_test = .false.
+!> Whether the transform being done on this PE?
 logical :: transform_on_this_pe = .false.
+!> Whether the test has started. No comparisons are done before this
+! flag is set.
+logical :: test_started = .false.
 
 contains
 
@@ -100,9 +119,22 @@ subroutine MOM_transform_test_init(param_file)
 
   endif
 
+  test_started = .false.
+
 end subroutine MOM_transform_test_init
 
-! =====================================================================
+subroutine transform_test_start()
+
+  test_started = .true.
+
+end subroutine transform_test_start
+
+function transform_test_started()
+    logical :: transform_test_started
+
+    transform_test_started = test_started
+
+end function transform_test_started
 
 function do_transform_on_this_pe()
     logical :: do_transform_on_this_pe
@@ -145,6 +177,224 @@ subroutine transform_2d(array)
   deallocate(tmp)
 
 end subroutine transform_2d
+
+!< Transform an allocatable array. After this call input may have
+! a different shape.
+subroutine transform_allocatable_2d(array)
+  real, dimension(:,:), allocatable, intent(inout) :: array
+
+  real, allocatable, dimension(:,:) :: tmp
+  integer :: isz, jsz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_2d: should not be called on this PE.')
+  endif
+
+  isz = size(array, 1)
+  jsz = size(array, 2)
+
+  allocate(tmp(isz, jsz))
+  tmp(:, :) = array(:, :)
+  deallocate(array)
+  allocate(array(jsz, isz))
+
+  if (.true.) then
+      call transpose_2d(tmp, array)
+  else
+      ! Try a 90 degree rotation
+      call rot90_2d(tmp, array, 1)
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_2d
+
+!< Transform an allocatable array. After this call input may have
+! a different shape.
+subroutine transform_allocatable_3d(array)
+  real, dimension(:, :, :), allocatable, intent(inout) :: array
+
+  real, allocatable, dimension(:, :, :) :: tmp
+  integer :: isz, jsz, ksz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_3d: should not be called on this PE.')
+  endif
+
+  isz = size(array, 1)
+  jsz = size(array, 2)
+  ksz = size(array, 3)
+
+  allocate(tmp(isz, jsz, ksz))
+  tmp(:, :, :) = array(:, :, :)
+  deallocate(array)
+  allocate(array(jsz, isz, ksz))
+
+  if (.true.) then
+      call transpose_3d(tmp, array)
+  else
+      ! Try a 90 degree rotation
+      call rot90_3d(tmp, array, 1)
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_3d
+
+!< Transform an allocatable array. After this call input may have
+! a different shape.
+subroutine transform_allocatable_4d(array)
+  real, dimension(:, :, :, :), allocatable, intent(inout) :: array
+
+  real, allocatable, dimension(:, :, :, :) :: tmp
+  integer :: isz, jsz, ksz, lsz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_4d: should not be called on this PE.')
+  endif
+
+  isz = size(array, 1)
+  jsz = size(array, 2)
+  ksz = size(array, 3)
+  lsz = size(array, 4)
+
+  allocate(tmp(isz, jsz, ksz, lsz))
+  tmp(:, :, :, :) = array(:, :, :, :)
+  deallocate(array)
+  allocate(array(jsz, isz, ksz, lsz))
+
+  if (.true.) then
+      call transpose_4d(tmp, array)
+  else
+      ! Try a 90 degree rotation
+      call MOM_error(FATAL, 'transform_4d: NotImplemented.')
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_4d
+
+!< Transform an allocatable arrays and swap contents.
+! After this call input may have a different shape.
+subroutine transform_allocatable_and_swap_3d(arrayA, arrayB)
+  real, dimension(:,:,:), allocatable, intent(inout) :: arrayA
+  real, dimension(:,:,:), allocatable, intent(inout) :: arrayB
+
+  real, allocatable, dimension(:,:,:) :: tmp
+  integer :: isz, jsz, ksz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_2d: should not be called on this PE.')
+  endif
+
+  if (size(arrayA, 1) /= size(arrayB, 1) .or. \
+      size(arrayA, 2) /= size(arrayB, 2)) then
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_3d: array shapes  not compatible')
+  endif
+
+  isz = size(arrayA, 1)
+  jsz = size(arrayA, 2)
+  ksz = size(arrayA, 3)
+
+  allocate(tmp(isz, jsz, ksz))
+  tmp(:, :, :) = arrayA(:, :, :)
+  deallocate(arrayA)
+  allocate(arrayA(jsz, isz, ksz))
+
+  if (.true.) then
+      call transpose_3d(arrayB, arrayA)
+  else
+      ! Try a 90 degree rotation
+      call rot90_3d(tmp, arrayA, 1)
+  endif
+
+  deallocate(arrayB)
+  allocate(arrayB(jsz, isz, ksz))
+
+  if (.true.) then
+      call transpose_3d(tmp, arrayB)
+  else
+      ! Try a 90 degree rotation
+      call rot90_3d(tmp, arrayB, 1)
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_and_swap_3d
+
+!< Transform an allocatable arrays and swap contents.
+! After this call input may have a different shape.
+subroutine transform_allocatable_and_swap_2d(arrayA, arrayB)
+  real, dimension(:,:), allocatable, intent(inout) :: arrayA
+  real, dimension(:,:), allocatable, intent(inout) :: arrayB
+
+  real, allocatable, dimension(:,:) :: tmp
+  integer :: isz, jsz
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_2d: should not be called on this PE.')
+  endif
+
+  if (size(arrayA, 1) /= size(arrayB, 1) .or. \
+      size(arrayA, 2) /= size(arrayB, 2)) then
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_2d: array shapes  not compatible')
+  endif
+
+  isz = size(arrayA, 1)
+  jsz = size(arrayA, 2)
+
+  allocate(tmp(isz, jsz))
+  tmp(:, :) = arrayA(:, :)
+  deallocate(arrayA)
+  allocate(arrayA(jsz, isz))
+
+  if (.true.) then
+      call transpose_2d(arrayB, arrayA)
+  else
+      ! Try a 90 degree rotation
+      call rot90_2d(tmp, arrayA, 1)
+  endif
+
+  deallocate(arrayB)
+  allocate(arrayB(jsz, isz))
+
+  if (.true.) then
+      call transpose_2d(tmp, arrayB)
+  else
+      ! Try a 90 degree rotation
+      call rot90_2d(tmp, arrayB, 1)
+  endif
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_and_swap_2d
+
+!< There is no 1d transformation, so this just swaps.
+subroutine transform_allocatable_and_swap_1d(arrayA, arrayB)
+  real, allocatable, dimension(:), intent(inout) :: arrayA, arrayB
+
+  real, allocatable, dimension(:) :: tmp
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_and_swap_1d: should not be called on this PE.')
+  endif
+
+  allocate(tmp(size(arrayA)))
+
+  tmp(:) = arrayA(:)
+
+  deallocate(arrayA)
+  allocate(arrayA(size(arrayB)))
+  arrayA(:) = arrayB
+
+  deallocate(arrayB)
+  allocate(arrayB(size(tmp)))
+  arrayB(:) = tmp(:)
+
+  deallocate(tmp)
+
+end subroutine transform_allocatable_and_swap_1d
+
 
 subroutine undo_transform_2d(original, undone)
   real, dimension(:,:), intent(in) :: original  !< The transformed array
@@ -209,6 +459,11 @@ subroutine transpose_2d(arrayIn, arrayOut)
   real, dimension(:,:), intent(in) :: arrayIn !< Array to be transposed
   real, dimension(:,:), intent(out) :: arrayOut !< Transposed array
 
+  if (size(arrayIn, 1) /= size(arrayOut, 2) &
+      .or. size(arrayIn, 2) /= size(arrayOut, 1)) then
+    call MOM_error(FATAL, 'transform_2d: array shapes incompatible.')
+  endif
+
   arrayOut(:, :) = transpose(arrayIn(:, :))
 
 end subroutine transpose_2d
@@ -225,6 +480,19 @@ subroutine transpose_3d(arrayIn, arrayOut)
 
 end subroutine transpose_3d
 
+subroutine transpose_4d(arrayIn, arrayOut)
+  real, dimension(:,:,:,:), intent(in) :: arrayIn !< The array to be transposed
+  real, dimension(:,:,:,:), intent(inout) :: arrayOut !< Transposed array
+
+  integer :: l
+
+  do l=lbound(arrayIn, 4), ubound(arrayIn, 4)
+     call transpose_3d(arrayIn(:, :, : , l), arrayOut(:, :, :, l))
+  enddo
+
+end subroutine transpose_4d
+
+
 subroutine transform_and_swap_2d(arrayA, arrayB)
   real, intent(inout), dimension(:,:) :: arrayA, arrayB
 
@@ -234,8 +502,8 @@ subroutine transform_and_swap_2d(arrayA, arrayB)
     call MOM_error(FATAL, 'transform_and_swap_2d: should not be called on this PE.')
   endif
 
-  if (size(arrayA, 1) /= size(arrayB, 2) .or. size(arrayA, 2) /= size(arrayB, 1)) then
-    call MOM_error(FATAL, 'transform_and_swap_2d: arrays shapes imcompatible.')
+  if (size(arrayA, 1) /= size(arrayB, 1) .or. size(arrayA, 2) /= size(arrayB, 2)) then
+    call MOM_error(FATAL, 'transform_and_swap_2d: arrays shapes incompatible.')
   endif
 
   allocate(tmp(size(arrayA, 1), size(arrayA, 2)))
@@ -285,17 +553,21 @@ subroutine transform_and_swap_3d(arrayA, arrayB)
 
 end subroutine transform_and_swap_3d
 
-subroutine transform_compare_2d(arrayA, arrayB)
-  real, intent(in), dimension(:, :) :: arrayA, arrayB
+subroutine transform_compare_2d(arrayA, arrayB, ret)
+  real, dimension(:, :), intent(in) :: arrayA, arrayB
+  integer, intent(out) :: ret
 
   real, allocatable, dimension(:,:) :: tmp
 
-  integer :: ret
+  if (.not. test_started) then
+    ret = 0
+    return
+  endif
 
   if (transform_on_this_pe) then
     allocate(tmp(size(arrayA, 2), size(arrayA, 1)))
     call undo_transform_2d(arrayA, tmp)
-    call transform_compare_1d(reshape(tmp, (/ size(tmp) /)), ret)
+    call ensemble_compare_1d(reshape(tmp, (/ size(tmp) /)), ret)
 
     if (ret /= 0) then
       call write_to_netcdf_2d(tmp, 'transform_test_debug_A.nc')
@@ -303,54 +575,63 @@ subroutine transform_compare_2d(arrayA, arrayB)
 
     deallocate(tmp)
   else
-    call transform_compare_1d(reshape(arrayB, (/ size(arrayB) /)), ret)
+    call ensemble_compare_1d(reshape(arrayB, (/ size(arrayB) /)), ret)
 
     if (ret /= 0) then
       call write_to_netcdf_2d(arrayB, 'transform_test_debug_B.nc')
     endif
   endif
 
-  if (ret /= 0) then
-   call MOM_error(FATAL, 'TRANSFORM_TEST failed')
-  else
-    print*, 'TRANSFORM_TEST passed'
-  endif
-
 end subroutine transform_compare_2d
 
-subroutine transform_compare_3d(arrayA, arrayB)
-  real, intent(in), dimension(:, :, :) :: arrayA, arrayB
+subroutine transform_compare_3d(arrayA, arrayB, ret)
+  real, dimension(:, :, :), intent(in) :: arrayA, arrayB
+  integer, intent(out) :: ret
 
   real, allocatable, dimension(:, :, :) :: tmp
 
-  integer :: ret
+  if (.not. test_started) then
+    ret = 0
+    return
+  endif
 
   if (transform_on_this_pe) then
     allocate(tmp(size(arrayA, 2), size(arrayA, 1), size(arrayA, 3)))
     call undo_transform_3d(arrayA, tmp)
-    call transform_compare_1d(reshape(tmp, (/ size(tmp) /)), ret)
+    call ensemble_compare_1d(reshape(tmp, (/ size(tmp) /)), ret)
 
     if (ret /= 0) then
       call write_to_netcdf_3d(tmp, 'transform_test_debug_A.nc')
     endif
     deallocate(tmp)
   else
-    call transform_compare_1d(reshape(arrayB, (/ size(arrayB) /)), ret)
+    call ensemble_compare_1d(reshape(arrayB, (/ size(arrayB) /)), ret)
 
     if (ret /= 0) then
       call write_to_netcdf_3d(arrayB, 'transform_test_debug_B.nc')
     endif
   endif
 
-  if (ret /= 0) then
-   call MOM_error(FATAL, 'TRANSFORM_TEST failed')
-  else
-    print*, 'TRANSFORM_TEST passed'
-  endif
-
 end subroutine transform_compare_3d
 
-subroutine transform_compare_1d(sbuf, ret)
+subroutine transform_compare_1d(arrayA, arrayB, ret)
+  real, intent(in), dimension(:) :: arrayA, arrayB
+  integer, intent(out) :: ret
+
+  if (.not. test_started) then
+    ret = 0
+    return
+  endif
+
+  if (transform_on_this_pe) then
+    call ensemble_compare_1d(arrayA, ret)
+  else
+    call ensemble_compare_1d(arrayB, ret)
+  endif
+
+end subroutine transform_compare_1d
+
+subroutine ensemble_compare_1d(sbuf, ret)
   real, intent(in), dimension(:) :: sbuf
   integer, intent(out) :: ret
 
@@ -392,7 +673,7 @@ subroutine transform_compare_1d(sbuf, ret)
 
   deallocate(rbuf)
 
-end subroutine transform_compare_1d
+end subroutine ensemble_compare_1d
 
 subroutine write_to_netcdf_3d(array, file_name)
   use netcdf

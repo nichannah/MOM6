@@ -92,7 +92,7 @@ type p3d
   real, dimension(:,:,:), pointer :: p => NULL()
 end type p3d
 
-type, public :: ideal_age_tracer_CS ; private
+type, public :: ideal_age_tracer_CS
   integer :: ntr    ! The number of tracers that are actually used.
   logical :: coupled_tracers = .false.  ! These tracers are not offered to the
                                         ! coupler.
@@ -103,9 +103,9 @@ type, public :: ideal_age_tracer_CS ; private
   logical :: Z_IC_file ! If true, the IC_file is in Z-space.  The default is false.
   type(time_type), pointer :: Time ! A pointer to the ocean model's clock.
   type(tracer_registry_type), pointer :: tr_Reg => NULL()
-  real, pointer :: tr(:,:,:,:) => NULL()   ! The array of tracers used in this
+  real, allocatable :: tr(:,:,:,:)   ! The array of tracers used in this
                                            ! subroutine, in g m-3?
-  real, pointer :: tr_aux(:,:,:,:) => NULL() ! The masked tracer concentration
+  real, allocatable :: tr_aux(:,:,:,:) ! The masked tracer concentration
                                              ! for output, in g m-3.
   type(p3d), dimension(NTR_MAX) :: &
     tr_adx, &! Tracer zonal advective fluxes in g m-3 m3 s-1.
@@ -620,8 +620,8 @@ subroutine ideal_age_example_end(CS)
   integer :: m
 
   if (associated(CS)) then
-    if (associated(CS%tr)) deallocate(CS%tr)
-    if (associated(CS%tr_aux)) deallocate(CS%tr_aux)
+    if (allocated(CS%tr)) deallocate(CS%tr)
+    if (allocated(CS%tr_aux)) deallocate(CS%tr_aux)
     do m=1,CS%ntr
       if (associated(CS%tr_adx(m)%p)) deallocate(CS%tr_adx(m)%p)
       if (associated(CS%tr_ady(m)%p)) deallocate(CS%tr_ady(m)%p)

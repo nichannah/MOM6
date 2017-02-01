@@ -26,7 +26,7 @@ use MOM_coms, only : reproducing_sum
 use MOM_error_handler, only : MOM_error, FATAL, is_root_pe
 use MOM_file_parser, only : log_version, get_param, param_file_type
 use MOM_hor_index, only : hor_index_type
-use MOM_transform_test, only : transform_compare, do_transform_test
+use MOM_transform_test, only : transform_compare, transform_test_started
 
 implicit none ; private
 
@@ -94,8 +94,16 @@ subroutine chksum_pair_h_2d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
   character(len=*),                 intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayA, arrayB)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayA, arrayB, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_h_2d '//trim(mesgA))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -114,8 +122,16 @@ subroutine chksum_pair_h_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
   character(len=*),                    intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayA, arrayB)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayA, arrayB, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_h_3d '//trim(mesgA))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -138,14 +154,21 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift, compare)
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: do_compare
+  integer :: ret
 
   do_compare = .true.
   if (present(compare)) then
     do_compare = compare
   endif
 
-  if (do_compare .and. do_transform_test()) then
-    call transform_compare(array, array)
+  if (do_compare .and. transform_test_started()) then
+    call transform_compare(array, array, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_h_2d '//trim(mesg))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (checkForNaNs) then
@@ -235,8 +258,16 @@ subroutine chksum_pair_B_2d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
   character(len=*),                 intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayA, arrayB)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayA, arrayB, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_B_2d '//trim(mesgA))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -255,8 +286,16 @@ subroutine chksum_pair_B_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
   character(len=*),                    intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayA, arrayB)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayA, arrayB, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_B_3d '//trim(mesgA))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -282,14 +321,21 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric, compare)
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: sym, do_compare
+  integer :: ret
 
   do_compare = .true.
   if (present(compare)) then
     do_compare = compare
   endif
 
-  if (do_compare .and. do_transform_test()) then
-    call transform_compare(array, array)
+  if (do_compare .and. transform_test_started()) then
+    call transform_compare(array, array, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_B_2d '//trim(mesg))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (checkForNaNs) then
@@ -386,8 +432,16 @@ subroutine chksum_pair_uv_2d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
   character(len=*),                 intent(in) :: mesgU, mesgV !< Identifying messages
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayU, arrayV)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayU, arrayV, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_uv_2d '//trim(mesgU))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -406,8 +460,16 @@ subroutine chksum_pair_uv_3d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
   character(len=*),                    intent(in) :: mesgU, mesgV !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  if (do_transform_test()) then
-    call transform_compare(arrayU, arrayV)
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(arrayU, arrayV, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_pair_uv_3d '//trim(mesgU))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (present(haloshift)) then
@@ -609,14 +671,21 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift, compare)
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: do_compare
+  integer :: ret
 
   do_compare = .true.
   if (present(compare)) then
     do_compare = compare
   endif
 
-  if (do_compare .and. do_transform_test()) then
-    call transform_compare(array, array)
+  if (do_compare .and. transform_test_started()) then
+    call transform_compare(array, array, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_h_3d '//trim(mesg))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (checkForNaNs) then
@@ -709,14 +778,21 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift, compare)
 
   integer :: bc0,bcSW,bcSE,bcNW,bcNE,hshift
   logical :: do_compare
+  integer :: ret
 
   do_compare = .true.
   if (present(compare)) then
     do_compare = compare
   endif
 
-  if (do_compare .and. do_transform_test()) then
-    call transform_compare(array, array)
+  if (do_compare .and. transform_test_started()) then
+    call transform_compare(array, array, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum_B_3d '//trim(mesg))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
   endif
 
   if (checkForNaNs) then
@@ -755,6 +831,7 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift, compare)
   bcNE=subchk(array, HI, hshift, hshift)
 
   if (is_root_pe()) call chk_sum_msg("B-point:",bc0,bcSW,bcSE,bcNW,bcNE,mesg)
+
 
   contains
 
@@ -997,6 +1074,17 @@ subroutine chksum1d(array, mesg, start_i, end_i, compare_PEs)
   logical :: compare
   integer :: pe_num   ! pe number of the data
   integer :: nPEs     ! Total number of processsors
+  integer :: ret
+
+  if (transform_test_started()) then
+    call transform_compare(array, array, ret)
+    if (ret /= 0) then
+      call chksum_error(FATAL, &
+                        'Transfrom test fail in chksum1d'//trim(mesg))
+    else
+      print*, 'TRANSFORM TEST PASSED'
+    endif
+  endif
 
   is = LBOUND(array,1) ; ie = UBOUND(array,1)
   if (present(start_i)) is = start_i

@@ -88,10 +88,10 @@ subroutine create_file(unit, filename, vars, novars, fields, threading, timeunit
   integer, optional,     intent(in)    :: threading  !< SINGLE_FILE or MULTIPLE
   real, optional,        intent(in)    :: timeunit   !< length, in seconds, of the units for time. The
                                                      !! default value is 86400.0, for 1 day.
-  type(ocean_grid_type),   optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
+  type(ocean_grid_type), target, optional, intent(in) :: G !< ocean horizontal grid structure; G or dG
                                                      !! is required if the new file uses any
                                                      !! horizontal grid axes.
-  type(dyn_horgrid_type),  optional, intent(in) :: dG !< dynamic horizontal grid structure; G or dG
+  type(dyn_horgrid_type), target, optional, intent(in) :: dG !< dynamic horizontal grid structure; G or dG
                                                      !! is required if the new file uses any
                                                      !! horizontal grid axes.
   type(verticalGrid_type), optional, intent(in) :: GV !< ocean vertical grid structure, which is

@@ -10,6 +10,7 @@ use MOM_file_parser, only : get_param, log_param, log_version, param_file_type
 implicit none ; private
 
 public :: hor_index_init, assignment(=)
+public :: transform_hor_index
 
 !> Container for horizontal index ranges for data, computational and global domains
 type, public :: hor_index_type
@@ -46,7 +47,6 @@ type, public :: hor_index_type
   integer :: idg_offset !< The offset between the corresponding global and local i-indices.
   integer :: jdg_offset !< The offset between the corresponding global and local j-indices.
   logical :: symmetric  !< True if symmetric memory is used.
-  integer :: nrot90 !< Number of 90 degree rotations on grid (and other) fields 
 end type hor_index_type
 
 interface assignment(=); module procedure HIT_assign ; end interface
@@ -110,6 +110,43 @@ subroutine HIT_assign(HI1, HI2)
   HI1%symmetric = HI2%symmetric
 
 end subroutine HIT_assign
+
+subroutine swap_int(a, b)
+  integer, intent(inout) :: a, b
+
+  integer tmp
+
+  tmp = a
+  a = b
+  b = tmp
+
+end subroutine
+
+subroutine transform_hor_index(HI)
+  type(hor_index_type), intent(inout) :: HI !< Horizontal index type to transform
+
+  ! Now fix up the dimensions.
+  call swap_int(HI%isc, HI%jsc)
+  call swap_int(HI%iec, HI%jec)
+
+  call swap_int(HI%isd, HI%jsd)
+  call swap_int(HI%ied, HI%jed)
+
+  call swap_int(HI%isg, HI%jsg)
+  call swap_int(HI%ieg, HI%jeg)
+
+  call swap_int(HI%IscB, HI%JscB)
+  call swap_int(HI%IecB, HI%JecB)
+
+  call swap_int(HI%IsdB, HI%JsdB)
+  call swap_int(HI%IedB, HI%JedB)
+
+  call swap_int(HI%IsgB, HI%JsgB)
+  call swap_int(HI%IegB, HI%JegB)
+
+  call swap_int(HI%idg_offset, HI%jdg_offset)
+
+end subroutine transform_hor_index
 
 !> \namespace mom_hor_index
 !!
