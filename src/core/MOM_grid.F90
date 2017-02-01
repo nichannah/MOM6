@@ -3,9 +3,10 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum
+use MOM_checksums, only : hchksum, qchksum, hchksum_pair, uvchksum_pair, bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe
-use MOM_hor_index, only : hor_index_type, hor_index_init
+use MOM_transform_test, only : transform_allocatable, transform_allocatable_and_swap
+use MOM_hor_index, only : hor_index_type, hor_index_init, transform_hor_index
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
 use MOM_error_handler, only : callTree_enter, callTree_leave
@@ -16,7 +17,9 @@ implicit none ; private
 #include <MOM_memory.h>
 
 public MOM_grid_init, MOM_grid_end, set_derived_metrics, set_first_direction
+public grid_metrics_chksum
 public isPointInCell, hor_index_type
+public transform_grid
 
 !> Ocean grid type. See mom_grid for details.
 type, public :: ocean_grid_type
@@ -121,15 +124,15 @@ type, public :: ocean_grid_type
     areaBu, &    !< areaBu is the area of a q-cell, in m2
     IareaBu      !< IareaBu = 1/areaBu in m-2.
 
-  real, pointer, dimension(:) :: &
-    gridLatT => NULL(), & !< The latitude of T points for the purpose of labeling the output axes.
+  real ALLOCABLE_, dimension(:) :: &
+    gridLatT, & !< The latitude of T points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLatT.
-    gridLatB => NULL()    !< The latitude of B points for the purpose of labeling the output axes.
+    gridLatB    !< The latitude of B points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLatBu.
-  real, pointer, dimension(:) :: &
-    gridLonT => NULL(), & !< The longitude of T points for the purpose of labeling the output axes.
+  real ALLOCABLE_, dimension(:) :: &
+    gridLonT, & !< The longitude of T points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLonT.
-    gridLonB => NULL()    !< The longitude of B points for the purpose of labeling the output axes.
+    gridLonB    !< The longitude of B points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLonBu.
   character(len=40) :: &
     x_axis_units, &     !< The units that are used in labeling the x coordinate axes.
@@ -516,12 +519,166 @@ subroutine allocate_metrics(G)
   ALLOC_(G%sin_rot(isd:ied,jsd:jed)) ; G%sin_rot(:,:) = 0.0
   ALLOC_(G%cos_rot(isd:ied,jsd:jed)) ; G%cos_rot(:,:) = 1.0
 
-  allocate(G%gridLonT(isg:ieg))   ; G%gridLonT(:) = 0.0
-  allocate(G%gridLonB(G%IsgB:G%IegB)) ; G%gridLonB(:) = 0.0
-  allocate(G%gridLatT(jsg:jeg))   ; G%gridLatT(:) = 0.0
-  allocate(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
+  ALLOC_(G%gridLonT(isg:ieg))   ; G%gridLonT(:) = 0.0
+  ALLOC_(G%gridLonB(G%IsgB:G%IegB)) ; G%gridLonB(:) = 0.0
+  ALLOC_(G%gridLatT(jsg:jeg))   ; G%gridLatT(:) = 0.0
+  ALLOC_(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
 
 end subroutine allocate_metrics
+
+subroutine swap_int(a, b)
+  integer, intent(inout) :: a, b
+
+  integer tmp
+
+  tmp = a
+  a = b
+  b = tmp
+
+end subroutine
+
+!> Transform all grid arrays for the purposes of the transform test.
+subroutine transform_grid(G)
+  type(ocean_grid_type), intent(inout) :: G !< The horizontal grid type
+
+  call callTree_enter("transform_grid()")
+
+  call transform_allocatable_and_swap(G%dxT, G%dyT)
+  call transform_allocatable_and_swap(G%IdxT, G%IdyT)
+  call transform_allocatable_and_swap(G%dxBu, G%dyBu)
+  call transform_allocatable_and_swap(G%IdxBu, G%IdyBu)
+  call transform_allocatable_and_swap(G%dxCu, G%dyCv)
+  call transform_allocatable_and_swap(G%IdxCu, G%IdyCv)
+  call transform_allocatable_and_swap(G%dyCu, G%dxCv)
+  call transform_allocatable_and_swap(G%IdyCu, G%IdxCv)
+
+  call transform_allocatable_and_swap(G%dy_Cu, G%dx_Cv)
+  call transform_allocatable_and_swap(G%dy_Cu_obc, G%dx_Cv_obc)
+
+  call transform_allocatable(G%mask2dT)
+  call transform_allocatable(G%mask2dBu)
+  call transform_allocatable_and_swap(G%mask2dCu, G%mask2dCv)
+
+  call transform_allocatable(G%geoLatT)
+  call transform_allocatable(G%geoLonT)
+  call transform_allocatable(G%geoLatBu)
+  call transform_allocatable(G%geoLonBu)
+  call transform_allocatable_and_swap(G%geoLatCu, G%geoLatCv)
+  call transform_allocatable_and_swap(G%geoLonCu, G%geoLonCv)
+
+  ! This is not correct, however it's a way around having to change the code
+  ! that uses these arrays and should not effect the test.
+  call transform_allocatable_and_swap(G%gridLatT, G%gridLonT)
+  call transform_allocatable_and_swap(G%gridLatB, G%gridLonB)
+
+  call transform_allocatable(G%areaT)
+  call transform_allocatable(G%IareaT)
+  call transform_allocatable(G%areaBu)
+  call transform_allocatable(G%IareaBu)
+  call transform_allocatable_and_swap(G%areaCu, G%areaCv)
+  call transform_allocatable_and_swap(G%IareaCu, G%IareaCv)
+
+  call transform_allocatable(G%sin_rot)
+  call transform_allocatable(G%cos_rot)
+  call transform_allocatable(G%bathyT)
+
+  if (allocated(G%Dblock_u)) call transform_allocatable(G%Dblock_u)
+  if (allocated(G%Dopen_u)) call transform_allocatable(G%Dopen_u)
+  if (allocated(G%Dblock_v)) call transform_allocatable(G%Dblock_v)
+  if (allocated(G%Dopen_v)) call transform_allocatable(G%Dopen_v)
+
+  call transform_allocatable(G%CoriolisBu)
+  call transform_allocatable_and_swap(G%dF_dx, G%dF_dy)
+
+
+  ! Now fix up the dimensions.
+  call swap_int(G%isc, G%jsc)
+  call swap_int(G%iec, G%jec)
+
+  call swap_int(G%isd, G%jsd)
+  call swap_int(G%ied, G%jed)
+
+  call swap_int(G%isg, G%jsg)
+  call swap_int(G%ieg, G%jeg)
+
+  call swap_int(G%IscB, G%JscB)
+  call swap_int(G%IecB, G%JecB)
+
+  call swap_int(G%IsdB, G%JsdB)
+  call swap_int(G%IedB, G%JedB)
+
+  call swap_int(G%IsgB, G%JsgB)
+  call swap_int(G%IegB, G%JegB)
+
+  call swap_int(G%isd_global, G%jsd_global)
+  call swap_int(G%idg_offset, G%jdg_offset)
+
+  call transform_hor_index(G%HI)
+
+  ! FIXME: add this and then we'll be able to dump diagnostics.
+  ! call transform_domain(G%Domain)
+
+  call callTree_leave("transform_grid()")
+
+end subroutine transform_grid
+
+!> grid_metrics_chksum performs a set of checksums on metrics on the grid for
+!!   debugging.
+subroutine grid_metrics_chksum(parent, G)
+  character(len=*),      intent(in) :: parent  !< A string identifying the caller
+  type(ocean_grid_type), intent(in) :: G !< The horizontal grid type
+
+  integer :: halo
+
+  halo = min(G%ied-G%isd, G%jed-G%jsd, 1)
+
+  call hchksum_pair(G%dxT, trim(parent)//': dxT', &
+                    G%dyT, trim(parent)//': dyT', G%HI, haloshift=halo)
+
+  call hchksum_pair(G%IdxT, trim(parent)//': IdxT', &
+                    G%IdyT, trim(parent)//': IdyT', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%dxCu, trim(parent)//': dxCu', &
+                     G%dyCv, trim(parent)//': dyCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%IdxCu, trim(parent)//': IdxCu', &
+                     G%IdyCv, trim(parent)//': IdyCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%dxCv, trim(parent)//': dxCv', &
+                     G%dyCu, trim(parent)//': dyCu', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%IdxCv, trim(parent)//': IdxCv', &
+                     G%IdyCu, trim(parent)//': IdyCu', G%HI, haloshift=halo)
+
+  call Bchksum_pair(G%dxBu, trim(parent)//': dxBu', &
+                    G%dyBu, trim(parent)//': dyBu', G%HI, haloshift=halo)
+
+  call Bchksum_pair(G%IdxBu, trim(parent)//': IdxBu', &
+                    G%IdyBu, trim(parent)//': IdyBu', G%HI, haloshift=halo)
+
+  call hchksum(G%areaT, trim(parent)//': areaT',G%HI, haloshift=halo)
+
+  call qchksum(G%areaBu ,trim(parent)//': areaBu',G%HI, haloshift=halo)
+
+  call hchksum(G%IareaT, trim(parent)//': IareaT',G%HI, haloshift=halo)
+
+  call qchksum(G%IareaBu, trim(parent)//': IareaBu',G%HI, haloshift=halo)
+
+  call hchksum(G%geoLonT, trim(parent)//': geoLonT',G%HI, haloshift=halo)
+
+  call hchksum(G%geoLatT, trim(parent)//': geoLatT',G%HI, haloshift=halo)
+
+  call qchksum(G%geoLonBu, trim(parent)//': geoLonBu',G%HI, haloshift=halo)
+
+  call qchksum(G%geoLatBu, trim(parent)//': geoLatBu',G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%geoLonCu, trim(parent)//': geoLonCu', &
+                     G%geoLonCv, trim(parent)//': geoLonCv', G%HI, haloshift=halo)
+
+  call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
+                     G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
+
+end subroutine grid_metrics_chksum
 
 !> Release memory used by the ocean_grid_type and related structures.
 subroutine MOM_grid_end(G)
