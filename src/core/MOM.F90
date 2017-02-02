@@ -23,9 +23,10 @@ use MOM_variables, only : surface
 use MOM_variables, only: thermo_var_ptrs
 
 ! Infrastructure modules
-use MOM_checksums,            only : MOM_checksums_init, hchksum, uchksum, vchksum
-use MOM_transform_test,       only : MOM_transform_test_init, transform_grid_and_inputs, transform_test_start
+use MOM_checksums,            only : MOM_checksums_init, hchksum, uchksum, vchksum, uvchksum_pair
+use MOM_transform_test,       only : MOM_transform_test_init, transform_test_start
 use MOM_transform_test,       only : do_transform_test, do_transform_on_this_pe
+use MOM_transform_test,       only : transform_allocatable, transform_allocatable_and_swap
 use MOM_checksum_packages,    only : MOM_thermo_chksum, MOM_state_chksum, MOM_accel_chksum
 use MOM_cpu_clock,            only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,            only : CLOCK_COMPONENT, CLOCK_SUBCOMPONENT
@@ -94,7 +95,7 @@ use MOM_EOS,                   only : gsw_sp_from_sr, gsw_pt_from_ct
 use MOM_EOS,                   only : calculate_density
 use MOM_error_checking,        only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
-use MOM_grid,                  only : grid_metrics_chksum
+use MOM_grid,                  only : grid_metrics_chksum, transform_grid
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
 use MOM_hor_index,             only : hor_index_type, hor_index_init
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
@@ -2230,14 +2231,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call copy_dyngrid_to_MOM_grid(dG, G)
   call destroy_dyn_horgrid(dG)
 
-  if (do_transform_test()) then
-    if (do_transform_on_this_pe()) then
-      call transform_grid_and_inputs(G)
-    endif
-    call transform_test_start()
-  endif
-  call grid_metrics_chksum("initialize_MOM", G)
-
   ! Set a few remaining fields that are specific to the ocean grid type.
   call set_first_direction(G, first_direction)
   ! Allocate the auxiliary non-symmetric domain for debugging or I/O purposes.
@@ -2252,6 +2245,15 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
                             CS%sponge_CSp, CS%ALE_sponge_CSp, CS%OBC, Time_in)
   call cpu_clock_end(id_clock_MOM_init)
   call callTree_waypoint("returned from MOM_initialize_state() (initialize_MOM)")
+
+  if (do_transform_test()) then
+    if (do_transform_on_this_pe()) then
+      call transform_grid(G)
+      call transform_state(CS)
+    endif
+    call transform_test_start()
+  endif
+  call grid_metrics_chksum("initialize_MOM", G)
 
   ! From this point, there may be pointers being set, so the final grid type
   ! that will persist throughout the run has to be used.
@@ -2284,12 +2286,13 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   call cpu_clock_begin(id_clock_pass_init)
   !--- set up group pass for u,v,T,S and h. pass_uv_T_S_h also is used in step_MOM
+
   call create_group_pass(CS%pass_uv_T_S_h, CS%u, CS%v, G%Domain)
+  call create_group_pass(CS%pass_uv_T_S_h, CS%h, G%Domain)
   if (CS%use_temperature) then
     call create_group_pass(CS%pass_uv_T_S_h, CS%tv%T, G%Domain)
     call create_group_pass(CS%pass_uv_T_S_h, CS%tv%S, G%Domain)
   endif
-  call create_group_pass(CS%pass_uv_T_S_h, CS%h, G%Domain)
   call cpu_clock_end(id_clock_pass_init)
 
   if (ALE_remap_init_conds(CS%ALE_CSp) .and. .not. query_initialized(CS%h,"h",CS%restart_CSp)) then
@@ -2297,8 +2300,8 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     ! \todo This block exists for legacy reasons and we should phase it out of
     ! all examples.
     if (CS%debug) then
-      call uchksum(CS%u,"Pre ALE adjust init cond u", G%HI, haloshift=1)
-      call vchksum(CS%v,"Pre ALE adjust init cond v", G%HI, haloshift=1)
+      call uvchksum_pair(CS%u, "Pre ALE adjust init cond u", &
+                         CS%v, "Pre ALE adjust init cond v", G%HI, haloshift=1)
       call hchksum(CS%h*GV%H_to_m,"Pre ALE adjust init cond h", G%HI, haloshift=1)
     endif
     call callTree_waypoint("Calling adjustGridForIntegrity() to remap initial conditions (initialize_MOM)")
@@ -2539,6 +2542,32 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call cpu_clock_end(id_clock_init)
 
 end subroutine initialize_MOM
+
+subroutine transform_state(CS)
+  type(MOM_control_struct),  pointer       :: CS          !< pointer set in this routine to MOM control structure
+
+  integer i
+
+  call transform_allocatable_and_swap(CS%u, CS%v)
+  call transform_allocatable(CS%h)
+  if (CS%use_temperature) then
+    call transform_allocatable(CS%T)
+    call transform_allocatable(CS%S)
+    CS%tv%T => CS%T
+    CS%tv%S => CS%S
+
+    do i=1,CS%tracer_Reg%ntr
+      if (CS%tracer_Reg%Tr(i)%vd%name == 'T') then
+        CS%tracer_Reg%Tr(i)%t => CS%tv%T
+      elseif (CS%tracer_Reg%Tr(i)%vd%name == 'S') then
+        CS%tracer_Reg%Tr(i)%t => CS%tv%S
+      endif
+      print*, 'Tracer name: ', CS%tracer_Reg%Tr(i)%vd%name 
+      print*, 'Tracer shape: ', shape(CS%tracer_Reg%Tr(i)%t)
+    enddo
+  endif
+
+end subroutine transform_state
 
 !> This subroutine finishes initializing MOM and writes out the initial conditions.
 subroutine finish_MOM_initialization(Time, dirs, CS, fluxes)

@@ -5,7 +5,8 @@ module MOM_grid
 
 use MOM_checksums, only : hchksum, qchksum, hchksum_pair, uvchksum_pair, bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe
-use MOM_hor_index, only : hor_index_type, hor_index_init
+use MOM_transform_test, only : transform_allocatable, transform_allocatable_and_swap
+use MOM_hor_index, only : hor_index_type, hor_index_init, transform_hor_index
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL
 use MOM_error_handler, only : callTree_enter, callTree_leave
@@ -18,6 +19,7 @@ implicit none ; private
 public MOM_grid_init, MOM_grid_end, set_derived_metrics, set_first_direction
 public grid_metrics_chksum
 public isPointInCell, hor_index_type
+public transform_grid
 
 !> Ocean grid type. See mom_grid for details.
 type, public :: ocean_grid_type
@@ -523,6 +525,90 @@ subroutine allocate_metrics(G)
   allocate(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
 
 end subroutine allocate_metrics
+
+subroutine swap_int(a, b)
+  integer, intent(inout) :: a, b
+
+  integer tmp
+
+  tmp = a
+  a = b
+  b = tmp
+
+end subroutine
+
+!> Transform all grid arrays for the purposes of the transform test.
+subroutine transform_grid(G)
+  type(ocean_grid_type), intent(inout) :: G !< The horizontal grid type
+
+  call callTree_enter("transform_grid()")
+
+  call transform_allocatable_and_swap(G%dxT, G%dyT)
+  call transform_allocatable_and_swap(G%IdxT, G%IdyT)
+  call transform_allocatable_and_swap(G%dxBu, G%dyBu)
+  call transform_allocatable_and_swap(G%IdxBu, G%IdyBu)
+  call transform_allocatable_and_swap(G%dxCu, G%dyCv)
+  call transform_allocatable_and_swap(G%IdxCu, G%IdyCv)
+  call transform_allocatable_and_swap(G%dyCu, G%dxCv)
+  call transform_allocatable_and_swap(G%IdyCu, G%IdxCv)
+
+  call transform_allocatable(G%mask2dT)
+  call transform_allocatable(G%mask2dBu)
+  call transform_allocatable_and_swap(G%mask2dCu, G%mask2dCv)
+
+  call transform_allocatable(G%geoLatT)
+  call transform_allocatable(G%geoLonT)
+  call transform_allocatable(G%geoLatBu)
+  call transform_allocatable(G%geoLonBu)
+  call transform_allocatable_and_swap(G%geoLatCu, G%geoLatCv)
+  call transform_allocatable_and_swap(G%geoLonCu, G%geoLonCv)
+
+  call transform_allocatable(G%areaT)
+  call transform_allocatable(G%IareaT)
+  call transform_allocatable(G%areaBu)
+  call transform_allocatable(G%IareaBu)
+  call transform_allocatable_and_swap(G%areaCu, G%areaCv)
+  call transform_allocatable_and_swap(G%IareaCu, G%IareaCv)
+
+  call transform_allocatable(G%sin_rot)
+  call transform_allocatable(G%cos_rot)
+  call transform_allocatable(G%bathyT)
+
+  if (allocated(G%Dblock_u)) call transform_allocatable(G%Dblock_u)
+  if (allocated(G%Dopen_u)) call transform_allocatable(G%Dopen_u)
+  if (allocated(G%Dblock_v)) call transform_allocatable(G%Dblock_v)
+  if (allocated(G%Dopen_v)) call transform_allocatable(G%Dopen_v)
+
+  call transform_allocatable(G%CoriolisBu)
+  call transform_allocatable_and_swap(G%dF_dx, G%dF_dy)
+
+  ! Now fix up the dimensions.
+  call swap_int(G%isc, G%jsc)
+  call swap_int(G%iec, G%jec)
+
+  call swap_int(G%isd, G%jsd)
+  call swap_int(G%ied, G%jed)
+
+  call swap_int(G%isg, G%jsg)
+  call swap_int(G%ieg, G%jeg)
+
+  call swap_int(G%IscB, G%JscB)
+  call swap_int(G%IecB, G%JecB)
+
+  call swap_int(G%IsdB, G%JsdB)
+  call swap_int(G%IedB, G%JedB)
+
+  call swap_int(G%IsgB, G%JsgB)
+  call swap_int(G%IegB, G%JegB)
+
+  call swap_int(G%isd_global, G%jsd_global)
+  call swap_int(G%idg_offset, G%jdg_offset)
+
+  call transform_hor_index(G%HI)
+
+  call callTree_leave("transform_grid()")
+
+end subroutine transform_grid
 
 !> grid_metrics_chksum performs a set of checksums on metrics on the grid for
 !!   debugging.
