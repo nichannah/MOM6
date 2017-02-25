@@ -150,33 +150,40 @@ function do_transform_test()
 
 end function do_transform_test
 
-subroutine transform_2d(array)
-  real, dimension(:,:), intent(inout) :: array !< The array to be transformed
-
-  real, allocatable, dimension(:,:) :: tmp
+!< 
+subroutine transform_2d(arrayIn, arrayOut)
+  real, dimension(:,:), intent(in) :: arrayIn !< Input array
+  real, dimension(:,:), intent(out) :: arrayOut !< Transformed input
 
   if (.not. transform_on_this_pe) then
     call MOM_error(FATAL, 'transform_2d: should not be called on this PE.')
   endif
 
-  if (size(array, 1) /= size(array, 2)) then
-    call MOM_error(FATAL, 'transform_2d: transform requires a square domain.')
-  endif
-
-  allocate(tmp(size(array, 1), size(array, 2)))
-
   if (.true.) then
-      call transpose_2d(array, tmp)
+      call transpose_2d(arrayIn, arrayOut)
   else
       ! Try a 90 degree rotation
-      call rot90_2d(array, tmp, 1)
+      call rot90_2d(arrayIn, arrayOut, 1)
   endif
 
-  array(:, :) = tmp(:, :)
-
-  deallocate(tmp)
-
 end subroutine transform_2d
+
+subroutine transform_3d(arrayIn, arrayOut)
+  real, dimension(:,:,:), intent(in) :: arrayIn !< Input array
+  real, dimension(:,:,:), intent(out) :: arrayOut !< Transformed input
+
+  if (.not. transform_on_this_pe) then
+    call MOM_error(FATAL, 'transform_3d: should not be called on this PE.')
+  endif
+
+  ! Try a 90 degree rotation
+  if (.true.) then
+      call transpose_3d(arrayIn, arrayOut)
+  else
+      call rot90_3d(arrayIn, arrayOut, 1)
+  endif
+
+end subroutine transform_3d
 
 !< Transform an allocatable array. After this call input may have
 ! a different shape.
@@ -284,7 +291,7 @@ subroutine transform_allocatable_and_swap_3d(arrayA, arrayB)
   integer :: isz, jsz, ksz
 
   if (.not. transform_on_this_pe) then
-    call MOM_error(FATAL, 'transform_allocatable_and_swap_2d: should not be called on this PE.')
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_3d: should not be called on this PE.')
   endif
 
   if (size(arrayA, 1) /= size(arrayB, 1) .or. \
@@ -376,7 +383,7 @@ subroutine transform_allocatable_and_swap_1d(arrayA, arrayB)
   real, allocatable, dimension(:) :: tmp
 
   if (.not. transform_on_this_pe) then
-    call MOM_error(FATAL, 'transform_and_swap_1d: should not be called on this PE.')
+    call MOM_error(FATAL, 'transform_allocatable_and_swap_1d: should not be called on this PE.')
   endif
 
   allocate(tmp(size(arrayA)))
@@ -413,30 +420,6 @@ subroutine undo_transform_2d(original, undone)
 
 end subroutine undo_transform_2d
 
-subroutine transform_3d(array)
-  real, dimension(:,:,:), intent(inout) :: array !< The array to be transformed
-
-  real, allocatable, dimension(:,:,:) :: tmp
-  integer :: k
-
-  if (.not. transform_on_this_pe) then
-    call MOM_error(FATAL, 'transform_3d: should not be called on this PE.')
-  endif
-
-  allocate(tmp(size(array, 1), size(array, 2), size(array, 3)))
-
-  ! Try a 90 degree rotation
-  if (.true.) then
-      call transpose_3d(array, tmp)
-  else
-      call rot90_3d(array, tmp, 1)
-  endif
-
-  array(:, :, :) = tmp(:, :, :)
-
-  deallocate(tmp)
-
-end subroutine transform_3d
 
 subroutine undo_transform_3d(original, reversed)
   real, dimension(:,:,:), intent(in) :: original  !< The transformed array
@@ -491,7 +474,6 @@ subroutine transpose_4d(arrayIn, arrayOut)
   enddo
 
 end subroutine transpose_4d
-
 
 subroutine transform_and_swap_2d(arrayA, arrayB)
   real, intent(inout), dimension(:,:) :: arrayA, arrayB

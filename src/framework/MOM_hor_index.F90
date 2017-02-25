@@ -122,29 +122,33 @@ subroutine swap_int(a, b)
 
 end subroutine
 
-subroutine transform_hor_index(HI)
-  type(hor_index_type), intent(inout) :: HI !< Horizontal index type to transform
+!> Make a copy of the horizonal index type and transform.
+subroutine transform_hor_index(HI, HI_trans)
+  type(hor_index_type),   intent(in) :: HI         !< Input horizontal index
+  type(hor_index_type),   intent(out) :: HI_trans  !< Transformed horizontal index
+
+  HI_trans = HI
 
   ! Now fix up the dimensions.
-  call swap_int(HI%isc, HI%jsc)
-  call swap_int(HI%iec, HI%jec)
+  call swap_int(HI_trans%isc, HI_trans%jsc)
+  call swap_int(HI_trans%iec, HI_trans%jec)
 
-  call swap_int(HI%isd, HI%jsd)
-  call swap_int(HI%ied, HI%jed)
+  call swap_int(HI_trans%isd, HI_trans%jsd)
+  call swap_int(HI_trans%ied, HI_trans%jed)
 
-  call swap_int(HI%isg, HI%jsg)
-  call swap_int(HI%ieg, HI%jeg)
+  call swap_int(HI_trans%isg, HI_trans%jsg)
+  call swap_int(HI_trans%ieg, HI_trans%jeg)
 
-  call swap_int(HI%IscB, HI%JscB)
-  call swap_int(HI%IecB, HI%JecB)
+  call swap_int(HI_trans%IscB, HI_trans%JscB)
+  call swap_int(HI_trans%IecB, HI_trans%JecB)
 
-  call swap_int(HI%IsdB, HI%JsdB)
-  call swap_int(HI%IedB, HI%JedB)
+  call swap_int(HI_trans%IsdB, HI_trans%JsdB)
+  call swap_int(HI_trans%IedB, HI_trans%JedB)
 
-  call swap_int(HI%IsgB, HI%JsgB)
-  call swap_int(HI%IegB, HI%JegB)
+  call swap_int(HI_trans%IsgB, HI_trans%JsgB)
+  call swap_int(HI_trans%IegB, HI_trans%JegB)
 
-  call swap_int(HI%idg_offset, HI%jdg_offset)
+  call swap_int(HI_trans%idg_offset, HI_trans%jdg_offset)
 
 end subroutine transform_hor_index
 

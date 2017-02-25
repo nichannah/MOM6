@@ -86,6 +86,7 @@ use mpp_domains_mod, only : mpp_get_domain_extents, mpp_deallocate_domain
 implicit none ; private
 
 public set_grid_metrics, initialize_masks, Adcroft_reciprocal
+public grid_metrics_chksum
 
 type, public :: GPS ; private
   real :: len_lon
@@ -158,8 +159,6 @@ subroutine set_grid_metrics(G, param_file)
   call callTree_enter("set_derived_metrics(), MOM_grid_initialize.F90")
   call set_derived_dyn_horgrid(G)
   call callTree_leave("set_derived_metrics()")
-
-  if (debug) call grid_metrics_chksum('MOM_grid_init/set_grid_metrics',G)
 
   call callTree_leave("set_grid_metrics()")
 
@@ -760,20 +759,20 @@ subroutine set_grid_metrics_spherical(G, param_file)
   enddo; enddo
 
   if (do_transform_on_this_pe()) then
-    call transform(G%geoLonT)
-    call transform(G%geoLatT)
-    call transform(G%areaT)
-    call transform_and_swap(G%dxT, G%dyT)
+    call transform(G%geoLonT, G%geoLonT)
+    call transform(G%geoLatT, G%geoLatT)
+    call transform(G%areaT, G%areaT)
+    call transform(G%dxT, G%dyT)
 
-    call transform(G%geoLonBu)
-    call transform(G%geoLatBu)
-    call transform(G%areaBu)
-    call transform_and_swap(G%dxBu, G%dyBu)
+    call transform(G%geoLonBu, G%geoLonBu)
+    call transform(G%geoLatBu, G%geoLatBu)
+    call transform(G%areaBu, G%areaBu)
+    call transform(G%dxBu, G%dyBu)
 
-    call transform_and_swap(G%geoLonCu, G%geoLonCv)
-    call transform_and_swap(G%geoLatCu, G%geoLatCv)
-    call transform_and_swap(G%dxCu, G%dyCv)
-    call transform_and_swap(G%dxCv, G%dyCu)
+    call transform(G%geoLonCu, G%geoLonCv)
+    call transform(G%geoLatCu, G%geoLatCv)
+    call transform(G%dxCu, G%dyCv)
+    call transform(G%dxCv, G%dyCu)
   endif
 
   call callTree_leave("set_grid_metrics_spherical()")

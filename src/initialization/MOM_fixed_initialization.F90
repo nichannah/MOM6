@@ -6,14 +6,16 @@ module MOM_fixed_initialization
 
 use MOM_checksums, only : hchksum, Bchksum
 use MOM_checksums, only : hchksum_pair, uvchksum_pair
+use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_domains, only : pass_var
-use MOM_dyn_horgrid, only : dyn_horgrid_type
+use MOM_dyn_horgrid, only : dyn_horgrid_type, transform_grid_init
 use MOM_error_handler, only : MOM_mesg, MOM_error, FATAL, WARNING, is_root_pe
 use MOM_error_handler, only : callTree_enter, callTree_leave, callTree_waypoint
 use MOM_file_parser, only : get_param, read_param, log_param, param_file_type
 use MOM_file_parser, only : log_version
 use MOM_io, only : slasher
 use MOM_grid_initialize, only : initialize_masks, set_grid_metrics
+use MOM_grid_initialize, only : grid_metrics_chksum
 use MOM_open_boundary, only : ocean_OBC_type
 use MOM_open_boundary, only : open_boundary_config, open_boundary_query
 use MOM_open_boundary, only : open_boundary_impose_normal_slope
@@ -71,13 +73,23 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
          "The directory in which input files are found.", default=".")
   inputdir = slasher(inputdir)
 
-! Set up the parameters of the physical domain (i.e. the grid), G
-  call set_grid_metrics(G, PF)
+  ! Set up the parameters of the physical domain (i.e. the grid), G
+  if (do_transform_on_this_pe()) then
+    call set_grid_metrics(G%self_untransformed, PF)
+    call MOM_initialize_topography(G%self_untransformed%bathyT, &
+                                   G%self_untransformed%max_depth, &
+                                   G%self_untransformed, PF)
+    call transform_grid_init(G, G%self_untransformed)
+  else
+    call set_grid_metrics(G, PF)
 
-! Set up the bottom depth, G%bathyT either analytically or from file
-! This also sets G%max_depth based on the input parameter MAXIMUM_DEPTH,
-! or, if absent, is diagnosed as G%max_depth = max( G%D(:,:) )
-  call MOM_initialize_topography(G%bathyT, G%max_depth, G, PF)
+    ! Set up the bottom depth, G%bathyT either analytically or from file
+    ! This also sets G%max_depth based on the input parameter MAXIMUM_DEPTH,
+    ! or, if absent, is diagnosed as G%max_depth = max( G%D(:,:) )
+    call MOM_initialize_topography(G%bathyT, G%max_depth, G, PF)
+  endif
+
+  if (debug) call grid_metrics_chksum('MOM_grid_init/set_grid_metrics',G)
 
   ! To initialize masks, the bathymetry in halo regions must be filled in
   call pass_var(G%bathyT, G%Domain)
@@ -158,6 +170,8 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
   call MOM_initialize_rotation(G%CoriolisBu, G, PF)
 !   Calculate the components of grad f (beta)
   call MOM_calculate_grad_Coriolis(G%dF_dx, G%dF_dy, G)
+
+
   if (debug) then
     call Bchksum(G%CoriolisBu, "MOM_initialize_fixed: f ", G%HI)
     call hchksum_pair(G%dF_dx, "MOM_initialize_fixed: dF_dx ", &
@@ -168,7 +182,13 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
   call compute_global_grid_integrals(G)
 
 ! Write out all of the grid data used by this run.
-  if (write_geom) call write_ocean_geometry_file(G, PF, output_dir)
+  if (write_geom) then
+    if (do_transform_on_this_pe()) then
+      call write_ocean_geometry_file(G%self_untransformed, PF, output_dir)
+    else
+      call write_ocean_geometry_file(G, PF, output_dir)
+    endif
+  endif
 
   call callTree_leave('MOM_initialize_fixed()')
 

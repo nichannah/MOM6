@@ -95,9 +95,9 @@ use MOM_EOS,                   only : gsw_sp_from_sr, gsw_pt_from_ct
 use MOM_EOS,                   only : calculate_density
 use MOM_error_checking,        only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
-use MOM_grid,                  only : grid_metrics_chksum, transform_grid
+use MOM_grid,                  only : grid_metrics_chksum
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
-use MOM_hor_index,             only : hor_index_type, hor_index_init
+use MOM_hor_index,             only : hor_index_type, hor_index_init, transform_hor_index
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
 use MOM_interface_heights,     only : find_eta
 use MOM_lateral_mixing_coeffs, only : calc_slope_functions, VarMix_init
@@ -1707,6 +1707,13 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   type(dyn_horgrid_type), pointer :: dG => NULL()
   type(diag_ctrl),        pointer :: diag
 
+  ! These are used by the transform test. This test transforms (either transpose or rotate) all model arrays and compares the
+  ! tranformed run to a vanilla run. To minimize impact on the model code the test takes two approaches to transforming models
+  ! arrays 1) change the horizontal grid specification so that arrays are created in the modified shape and, 2) transform the arrays
+  ! after they have been created.
+  type(hor_index_type)            :: HI_trans  !  A hor_index_type for array extents
+  type(dyn_horgrid_type), pointer :: dG_trans => NULL()
+
   character(len=4), parameter :: vers_num = 'v2.0'
 
 ! This include declares and sets the variable "version".
@@ -2079,9 +2086,23 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   call hor_index_init(G%Domain, HI, param_file, &
                       local_indexing=.not.global_indexing)
-
   call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
+
+  ! Create transformed horizontal index type and dynamic grid.
+  if (do_transform_on_this_pe()) then
+    call transform_hor_index(HI, HI)
+    call create_dyn_horgrid(dG_trans, HI, bathymetry_at_vel=bathy_at_vel)
+    ! Keep a copy of the original (untransformed) grid 
+    dG_trans%self_untransformed => dG
+    ! From now on use the transformed grid
+    dG => dG_trans
+
+    call clone_MOM_domain(G%Domain, dG%self_untransformed%Domain)
+  endif
+
   call clone_MOM_domain(G%Domain, dG%Domain)
+
+  call transform_test_start()
 
   call verticalGridInit( param_file, CS%GV )
   GV => CS%GV
@@ -2093,14 +2114,13 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   call callTree_waypoint("grids initialized (initialize_MOM)")
 
-
   call MOM_timing_init(CS)
 
   call tracer_registry_init(param_file, CS%tracer_Reg)
 
-  is   = dG%isc   ; ie   = dG%iec  ; js   = dG%jsc  ; je   = dG%jec ; nz = GV%ke
-  isd  = dG%isd   ; ied  = dG%ied  ; jsd  = dG%jsd  ; jed  = dG%jed
-  IsdB = dG%IsdB  ; IedB = dG%IedB ; JsdB = dG%JsdB ; JedB = dG%JedB
+  is   = HI%isc   ; ie   = HI%iec  ; js   = HI%jsc  ; je   = HI%jec ; nz = GV%ke
+  isd  = HI%isd   ; ied  = HI%ied  ; jsd  = HI%jsd  ; jed  = HI%jed
+  IsdB = HI%IsdB  ; IedB = HI%IedB ; JsdB = HI%JsdB ; JedB = HI%JedB
 
   ! Allocate and initialize space for primary MOM variables.
   ALLOC_(CS%u(IsdB:IedB,jsd:jed,nz))   ; CS%u(:,:,:) = 0.0
@@ -2204,7 +2224,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   ! Additional calls can be added to MOM_tracer_flow_control.F90.
   call call_tracer_register(dG%HI, GV, param_file, CS%tracer_flow_CSp, &
                             CS%tracer_Reg, CS%restart_CSp)
-
   call MEKE_alloc_register_restart(dG%HI, param_file, CS%MEKE, CS%restart_CSp)
   call set_visc_register_restarts(dG%HI, GV, param_file, CS%visc, CS%restart_CSp)
   call mixedlayer_restrat_register_restarts(dG%HI, param_file, CS%mixedlayer_restrat_CSp, CS%restart_CSp)
@@ -2231,6 +2250,7 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call MOM_grid_init(G, param_file, HI, bathymetry_at_vel=bathy_at_vel)
   call copy_dyngrid_to_MOM_grid(dG, G)
   call destroy_dyn_horgrid(dG)
+  call grid_metrics_chksum("initialize_MOM", G)
 
   ! Set a few remaining fields that are specific to the ocean grid type.
   call set_first_direction(G, first_direction)
@@ -2247,16 +2267,15 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call cpu_clock_end(id_clock_MOM_init)
   call callTree_waypoint("returned from MOM_initialize_state() (initialize_MOM)")
 
-  if (do_transform_test()) then
-    if (do_transform_on_this_pe()) then
-      call transform_grid(G)
-      call transform_state(CS)
-      call transform_tracers(CS%tracer_flow_CSp, CS%tracer_Reg)
-      call transform_reset_pointers(CS)
-    endif
-    call transform_test_start()
-  endif
-  call grid_metrics_chksum("initialize_MOM", G)
+  !if (do_transform_test()) then
+  !  if (do_transform_on_this_pe()) then
+  !    call transform_grid(G)
+  !    call transform_state(CS)
+  !    call transform_tracers(CS%tracer_flow_CSp, CS%tracer_Reg)
+  !    call transform_reset_pointers(CS)
+  !  endif
+  !  call transform_test_start()
+  !endif
 
   ! From this point, there may be pointers being set, so the final grid type
   ! that will persist throughout the run has to be used.
