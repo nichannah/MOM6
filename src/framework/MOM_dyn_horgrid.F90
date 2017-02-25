@@ -23,14 +23,18 @@ module MOM_dyn_horgrid
 use MOM_hor_index, only : hor_index_type
 use MOM_domains, only : MOM_domain_type
 use MOM_error_handler, only : MOM_error, MOM_mesg, FATAL, WARNING
+use MOM_transform_test, only : transform
 
 implicit none ; private
 
 public create_dyn_horgrid, destroy_dyn_horgrid, set_derived_dyn_horgrid
+public transform_grid_init
 
 type, public :: dyn_horgrid_type
   type(MOM_domain_type), pointer :: Domain => NULL()
   type(MOM_domain_type), pointer :: Domain_aux => NULL() ! A non-symmetric auxiliary domain type.
+
+  type(dyn_horgrid_type), pointer :: self_untransformed
 
   ! These elements can be copied from a provided hor_index_type.
   type(hor_index_type)  :: HI   ! Make this a pointer?
@@ -253,6 +257,79 @@ subroutine create_dyn_horgrid(G, HI, bathymetry_at_vel)
   allocate(G%gridLatB(jsg-1:jeg)) ; G%gridLatB(:) = 0.0
 
 end subroutine create_dyn_horgrid
+
+!> Initialise G_trans using G
+subroutine transform_grid_init(G_trans, G) 
+
+  type(dyn_horgrid_type), intent(inout) :: G_trans !< Transformed grid
+  type(dyn_horgrid_type), intent(in) :: G !< Original grid
+
+  call transform(G%dyT, G_trans%dxT)
+  call transform(G%dxT, G_trans%dyT)
+  call transform(G%IdyT, G_trans%IdxT)
+  call transform(G%IdxT, G_trans%IdyT)
+
+  call transform(G%dyBu, G_trans%dxBu)
+  call transform(G%dxBu, G_trans%dyBu)
+  call transform(G%IdyBu, G_trans%IdxBu)
+  call transform(G%IdxBu, G_trans%IdyBu)
+
+  call transform(G%dyCu, G_trans%dxCv)
+  call transform(G%dxCu, G_trans%dyCv)
+  call transform(G%IdyCu, G_trans%IdxCv)
+  call transform(G%IdxCu, G_trans%IdyCv)
+
+  call transform(G%dyCv, G_trans%dxCu)
+  call transform(G%dxCv, G_trans%dyCu)
+  call transform(G%IdyCv, G_trans%IdxCu)
+  call transform(G%IdxCv, G_trans%IdyCu)
+
+  call transform(G%dy_Cu, G_trans%dx_Cv)
+  call transform(G%dy_Cu_obc, G_trans%dx_Cv_obc)
+
+  call transform(G%dx_Cv, G_trans%dy_Cu)
+  call transform(G%dx_Cv_obc, G_trans%dy_Cu_obc)
+
+  call transform(G%mask2dT, G_trans%mask2dT)
+  call transform(G%mask2dBu, G_trans%mask2dBu)
+
+  call transform(G%mask2dCu, G_trans%mask2dCv)
+  call transform(G%mask2dCv, G_trans%mask2dCu)
+
+  call transform(G%geoLatT, G_trans%geoLatT)
+  call transform(G%geoLonT, G_trans%geoLonT)
+  call transform(G%geoLatBu, G_trans%geoLatBu)
+  call transform(G%geoLonBu, G_trans%geoLonBu)
+
+  call transform(G%geoLatCu, G_trans%geoLatCv)
+  call transform(G%geoLonCu, G_trans%geoLonCv)
+  call transform(G%geoLatCv, G_trans%geoLatCu)
+  call transform(G%geoLonCv, G_trans%geoLonCu)
+
+  call transform(G%areaT, G_trans%areaT)
+  call transform(G%IareaT, G_trans%IareaT)
+  call transform(G%areaBu, G_trans%areaBu)
+  call transform(G%IareaBu, G_trans%IareaBu)
+  call transform(G%areaCu, G_trans%areaCv)
+  call transform(G%IareaCu, G_trans%IareaCv)
+  call transform(G%areaCv, G_trans%areaCu)
+  call transform(G%IareaCv, G_trans%IareaCu)
+
+  call transform(G%sin_rot, G_trans%sin_rot)
+  call transform(G%cos_rot, G_trans%cos_rot)
+  call transform(G%bathyT, G_trans%bathyT)
+
+  if (allocated(G%Dblock_u)) call transform(G%Dblock_u, G_trans%Dblock_u)
+  if (allocated(G%Dopen_u)) call transform(G%Dopen_u, G_trans%Dopen_u)
+  if (allocated(G%Dblock_v)) call transform(G%Dblock_v, G_trans%Dblock_v)
+  if (allocated(G%Dopen_v)) call transform(G%Dopen_v, G_trans%Dopen_v)
+
+  call transform(G%CoriolisBu, G_trans%CoriolisBu)
+  call transform(G%dF_dx, G_trans%dF_dy)
+  call transform(G%dF_dy, G_trans%dF_dx)
+
+end subroutine transform_grid_init
+
 
 !> set_derived_dyn_horgrid calculates metric terms that are derived from other metrics.
 subroutine set_derived_dyn_horgrid(G)
