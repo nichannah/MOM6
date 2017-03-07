@@ -66,7 +66,7 @@ module MOM_grid_initialize
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, hchksum_pair
+use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, Bchksum
 use MOM_checksums, only : hchksum_pair, uvchksum_pair, Bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe, transform, transform_and_swap
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
@@ -86,7 +86,7 @@ use mpp_domains_mod, only : mpp_get_domain_extents, mpp_deallocate_domain
 implicit none ; private
 
 public set_grid_metrics, initialize_masks, Adcroft_reciprocal
-public grid_metrics_chksum
+public dyn_grid_metrics_chksum
 
 type, public :: GPS ; private
   real :: len_lon
@@ -168,7 +168,7 @@ end subroutine set_grid_metrics
 
 !> grid_metrics_chksum performs a set of checksums on metrics on the grid for
 !!   debugging.
-subroutine grid_metrics_chksum(parent, G)
+subroutine dyn_grid_metrics_chksum(parent, G)
   character(len=*),      intent(in) :: parent  !< A string identifying the caller
   type(dyn_horgrid_type), intent(in) :: G      !< The dynamic horizontal grid type
 
@@ -238,7 +238,17 @@ subroutine grid_metrics_chksum(parent, G)
   call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
                      G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
 
-end subroutine grid_metrics_chksum
+  call hchksum(G%bathyT, trim(parent)//': depth', G%HI, haloshift=1)
+  call hchksum(G%mask2dT, trim(parent)//': mask2dT ', G%HI)
+  call uvchksum_pair(G%mask2dCu, trim(parent)//': mask2dCu ', &
+                     G%mask2dCv, trim(parent)//': mask2dCv ', G%HI)
+  call Bchksum(G%mask2dBu, trim(parent)//': mask2dBu ', G%HI)
+
+  call Bchksum(G%CoriolisBu, trim(parent)//': f ', G%HI)
+  call hchksum_pair(G%dF_dx, trim(parent)//': dF_dx ', &
+                    G%dF_dy, trim(parent)//': dF_dy ', G%HI)
+
+end subroutine dyn_grid_metrics_chksum
 
 ! ------------------------------------------------------------------------------
 

@@ -25,7 +25,7 @@ use MOM_error_handler, only : MOM_error, FATAL
 use MOM_file_parser, only : log_version, get_param, param_file_type
 use MOM_error_handler,  only : callTree_enter, callTree_leave
 
-use mpp_mod, only : mpp_gather
+use mpp_mod, only : mpp_gather, mpp_max
 use ensemble_manager_mod, only : get_ensemble_size, get_ensemble_id, get_ensemble_pelist
 
 implicit none ; private
@@ -621,6 +621,7 @@ subroutine ensemble_compare_1d(sbuf, ret)
   integer, dimension(6) :: ensemble_size
   real, dimension(:), allocatable :: rbuf
   integer :: sbuf_size, e, i
+  real :: a, b
 
   ret = 0
 
@@ -638,14 +639,18 @@ subroutine ensemble_compare_1d(sbuf, ret)
   allocate(ensemble_pelist(ensemble_size(1), ensemble_size(2)))
   call get_ensemble_pelist(ensemble_pelist)
 
-  ! Gather between the root of every ensemble member.
+  ! Gather to root of every ensemble member.
   call mpp_gather(sbuf, rbuf, ensemble_pelist(:, 1))
 
   ! Check that sbuf is the same on all pes.
   if (transform_on_this_pe) then
     do e=0,ensemble_size(1)-1
       do i=1,sbuf_size
-        if (sbuf(i) /= rbuf(e*sbuf_size + i)) then
+        a = sbuf(i)
+        b = rbuf(e*sbuf_size + i)
+        if ((a /= b) .and. (abs(a - b) /= 0.0)) then
+          print*, a, b
+          print*, a - b
           ret = i
           exit
         endif
@@ -654,6 +659,8 @@ subroutine ensemble_compare_1d(sbuf, ret)
   endif
 
   deallocate(rbuf)
+
+  call mpp_max(ret, ensemble_pelist(:, 1))
 
 end subroutine ensemble_compare_1d
 
