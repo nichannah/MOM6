@@ -428,7 +428,7 @@ subroutine fill_miss_2d(aout,good,fill,prev,G,smooth,num_pass,relc,crit,keep_bug
 
 end subroutine fill_miss_2d
 
-subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum, G, tr_z, mask_z, z_in, z_edges_in, missing_value, reentrant_x, tripolar_n, homogenize )
+subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum, G, tr_z, mask_z, z_in, z_edges_in, missing_value, reentrant_x, tripolar_n, homogenize, debug )
 
   character(len=*), intent(in) :: filename   ! Path to file containing tracer to be interpolated
   character(len=*), intent(in) :: varnam     ! name of tracer in filee
@@ -444,6 +444,7 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
   real,                intent(out)  :: missing_value
   logical,          intent(in) :: reentrant_x, tripolar_n
   logical, intent(in), optional     :: homogenize
+  logical, intent(in), optional     :: debug
 
   real, dimension(:,:), allocatable :: tr_in,tr_inp ! A 2-d array for holding input data on native horizontal
                                                     ! grid and extended grid with poles
@@ -468,7 +469,6 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
   integer :: ni, nj, nz         ! global grid size
   integer :: id_clock_read
   character(len=12)  :: dim_name(4)
-  logical :: debug=.false.
   real :: npoints,varAvg
   real, dimension(SZI_(G),SZJ_(G)) :: lon_out, lat_out, tr_out, mask_out
   real, dimension(SZI_(G),SZJ_(G)) :: good, fill
@@ -481,7 +481,6 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
   isg = G%isg ; ieg = G%ieg ; jsg = G%jsg ; jeg = G%jeg
 
   id_clock_read = cpu_clock_id('(Initialize tracer from Z) read', grain=CLOCK_LOOP)
-
 
   if (ALLOCATED(tr_z)) deallocate(tr_z)
   if (ALLOCATED(mask_z)) deallocate(mask_z)
@@ -592,7 +591,6 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
   lon_out(:,:) = G%geoLonT(:,:)*PI_180
   lat_out(:,:) = G%geoLatT(:,:)*PI_180
 
-
   allocate(tr_in(id,jd)) ; tr_in(:,:)=0.0
   allocate(tr_inp(id,jdp)) ; tr_inp(:,:)=0.0
   allocate(mask_in(id,jdp)) ; mask_in(:,:)=0.0
@@ -660,15 +658,15 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
 
 
 ! call fms routine horiz_interp to interpolate input level data to model horizontal grid
-
+    if (present(debug)) then
+      if (debug) then
+         call myStats(tr_inp,missing_value,1,id,1,jdp,k,'Tracer from file')
+      endif
+    endif
 
     if (k == 1) then
       call horiz_interp_new(Interp,x_in,y_in,lon_out(is:ie,js:je),lat_out(is:ie,js:je), &
                interp_method='bilinear',src_modulo=reentrant_x)
-    endif
-
-    if (debug) then
-       call myStats(tr_inp,missing_value, is,ie,js,je,k,'Tracer from file')
     endif
 
     tr_out(:,:) = 0.0
@@ -700,8 +698,10 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
     call pass_var(fill,G%Domain)
     call pass_var(good,G%Domain)
 
-    if (debug) then
-      call myStats(tr_out,missing_value, is,ie,js,je,k,'variable from horiz_interp()')
+    if (present(debug)) then
+      if (debug) then
+        call myStats(tr_out,missing_value, is,ie,js,je,k,'variable from horiz_interp()')
+      endif
     endif
 
     ! Horizontally homogenize data to produce perfectly "flat" initial conditions
@@ -725,18 +725,15 @@ subroutine horiz_interp_and_extrap_tracer(filename, varnam,  conversion, recnum,
     fill2(:,:)=fill(:,:)
 
     call fill_miss_2d(tr_outf,good2,fill2,tr_prev,G,smooth=.true.)
-    call myStats(tr_outf,missing_value,is,ie,js,je,k,'field from fill_miss_2d()')
+    call myStats(tr_outf,missing_value,is,ie,js,je,k,'tr_outf from fill_miss_2d()')
 
     tr_z(:,:,k) = tr_outf(:,:)*G%mask2dT(:,:)
     mask_z(:,:,k) = good2(:,:)+fill2(:,:)
 
     tr_prev(:,:)=tr_z(:,:,k)
 
-    if (debug) then
-      call hchksum(tr_prev,'field after fill ',G%HI)
-    endif
-
   enddo ! kd
+
 
 end subroutine horiz_interp_and_extrap_tracer
 

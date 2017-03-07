@@ -89,13 +89,14 @@ use MOM_dynamics_unsplit_RK2,  only : MOM_dyn_unsplit_RK2_CS
 use MOM_dynamics_legacy_split, only : step_MOM_dyn_legacy_split, register_restarts_dyn_legacy_split
 use MOM_dynamics_legacy_split, only : initialize_dyn_legacy_split, end_dyn_legacy_split
 use MOM_dynamics_legacy_split, only : adjustments_dyn_legacy_split, MOM_dyn_legacy_split_CS
-use MOM_dyn_horgrid,           only : dyn_horgrid_type, create_dyn_horgrid, destroy_dyn_horgrid
+use MOM_dyn_horgrid,           only : dyn_horgrid_type, create_dyn_horgrid, destroy_dyn_horgrid, transform_grid_init
 use MOM_EOS,                   only : EOS_init
 use MOM_EOS,                   only : gsw_sp_from_sr, gsw_pt_from_ct
 use MOM_EOS,                   only : calculate_density
 use MOM_debugging,             only : check_redundant
 use MOM_grid,                  only : ocean_grid_type, set_first_direction
 use MOM_grid,                  only : grid_metrics_chksum
+use MOM_grid_initialize,       only : dyn_grid_metrics_chksum
 use MOM_grid,                  only : MOM_grid_init, MOM_grid_end
 use MOM_hor_index,             only : hor_index_type, hor_index_init, transform_hor_index
 use MOM_hor_visc,              only : horizontal_viscosity, hor_visc_init
@@ -1717,8 +1718,9 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   ! tranformed run to a vanilla run. To minimize impact on the model code the test takes two approaches to transforming models
   ! arrays 1) change the horizontal grid specification so that arrays are created in the modified shape and, 2) transform the arrays
   ! after they have been created.
-  type(hor_index_type)            :: HI_trans  !  A hor_index_type for array extents
-  type(dyn_horgrid_type), pointer :: dG_trans => NULL()
+  type(ocean_grid_type),  pointer :: G_untrans => NULL() ! A pointer to a structure with metrics and related
+  type(hor_index_type)            :: HI_untrans  !  A hor_index_type for array extents
+  type(dyn_horgrid_type), pointer :: dG_untrans => NULL()
 
   character(len=4), parameter :: vers_num = 'v2.0'
 
@@ -2092,18 +2094,25 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   call hor_index_init(G%Domain, HI, param_file, &
                       local_indexing=.not.global_indexing)
-  call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
 
   ! Create transformed horizontal index type and dynamic grid.
   if (do_transform_on_this_pe()) then
-    call transform_hor_index(HI, HI)
-    call create_dyn_horgrid(dG_trans, HI, bathymetry_at_vel=bathy_at_vel)
-    ! Keep a copy of the original (untransformed) grid 
-    dG_trans%self_untransformed => dG
-    ! From now on use the transformed grid
-    dG => dG_trans
 
+    ! Keep a copy of the original HI, dG, G
+    call hor_index_init(G%Domain, HI_untrans, param_file, &
+                        local_indexing=.not.global_indexing)
+    call create_dyn_horgrid(dG_untrans, HI_untrans, bathymetry_at_vel=bathy_at_vel)
+    allocate(G_untrans)
+    call clone_MOM_domain(G%Domain, G_untrans%Domain)
+
+    ! Do transformation
+    call transform_hor_index(HI, HI)
+    call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
+
+    dG%self_untransformed => dG_untrans
     call clone_MOM_domain(G%Domain, dG%self_untransformed%Domain)
+  else
+    call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
   endif
 
   call clone_MOM_domain(G%Domain, dG%Domain)
@@ -2238,7 +2247,19 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call callTree_waypoint("restart registration complete (initialize_MOM)")
 
   call cpu_clock_begin(id_clock_MOM_init)
-  call MOM_initialize_fixed(dG, CS%OBC, param_file, write_geom_files, dirs%output_directory)
+
+  if (do_transform_on_this_pe()) then
+    call MOM_initialize_fixed(dG%self_untransformed, CS%OBC, param_file, &
+                              write_geom_files, dirs%output_directory)
+    call transform_grid_init(dG, dG%self_untransformed)
+  else
+    call MOM_initialize_fixed(dG, CS%OBC, param_file, write_geom_files, dirs%output_directory)
+  endif
+
+  if (CS%debug) then
+    call dyn_grid_metrics_chksum('MOM_initialize', dG)
+  endif
+
   call callTree_waypoint("returned from MOM_initialize_fixed() (initialize_MOM)")
   call MOM_initialize_coord(GV, param_file, write_geom_files, &
                             dirs%output_directory, CS%tv, dG%max_depth)
@@ -2255,8 +2276,17 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   !     call clone_MOM_domain(dG%Domain, G%Domain)
   call MOM_grid_init(G, param_file, HI, bathymetry_at_vel=bathy_at_vel)
   call copy_dyngrid_to_MOM_grid(dG, G)
-  call destroy_dyn_horgrid(dG)
   call grid_metrics_chksum("initialize_MOM", G)
+
+  ! Once again, keep a copy of the untransformed G. This is used to initialize state.
+  if (do_transform_on_this_pe()) then
+    call MOM_grid_init(G_untrans, param_file, HI_untrans, bathymetry_at_vel=bathy_at_vel)
+    call copy_dyngrid_to_MOM_grid(dG%self_untransformed, G_untrans)
+    call destroy_dyn_horgrid(dG%self_untransformed)
+    G%self_untransformed => G_untrans
+  endif
+
+  call destroy_dyn_horgrid(dG)
 
   ! Set a few remaining fields that are specific to the ocean grid type.
   call set_first_direction(G, first_direction)

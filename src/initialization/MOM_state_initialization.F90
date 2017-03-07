@@ -5,6 +5,7 @@ module MOM_state_initialization
 
 use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, chksum
 use MOM_checksums, only : uvchksum_pair
+use MOM_transform_test, only : do_transform_on_this_pe, transform_allocatable
 use MOM_coms, only : max_across_PEs, min_across_PEs
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock, only :  CLOCK_ROUTINE, CLOCK_LOOP
@@ -1701,6 +1702,8 @@ subroutine MOM_temp_salt_initialize_from_Z(h, tv, G, GV, PF, dirs)
   if ((dirs%input_filename(1:1) == 'n') .and. &
        (LEN_TRIM(dirs%input_filename) == 1)) new_sim = .true.
 
+  call get_param(PF, mod, "DEBUG", debug, default=.false.)
+
   inputdir = "." ;  call get_param(PF, mod, "INPUTDIR", inputdir)
   inputdir = slasher(inputdir)
 
@@ -1763,12 +1766,31 @@ subroutine MOM_temp_salt_initialize_from_Z(h, tv, G, GV, PF, dirs)
 !   to the North/South Pole past the limits of the input data, they are extrapolated using the average
 !   value at the northernmost/southernmost latitude.
 
+  if (do_transform_on_this_pe()) then
+    call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
+         G%self_untransformed, temp_z, mask_z, z_in, z_edges_in, &
+         missing_value_temp, reentrant_x, tripolar_n, homogenize, debug)
 
-  call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
-       G, temp_z, mask_z, z_in, z_edges_in, missing_value_temp, reentrant_x, tripolar_n, homogenize)
+    call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
+         G%self_untransformed, salt_z, mask_z, z_in, z_edges_in, &
+         missing_value_salt, reentrant_x, tripolar_n, homogenize, debug)
 
-  call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
-       G, salt_z, mask_z, z_in, z_edges_in, missing_value_salt, reentrant_x, tripolar_n, homogenize)
+    call transform_allocatable(temp_z)
+    call transform_allocatable(salt_z)
+    call transform_allocatable(mask_z)
+  else
+    call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
+         G, temp_z, mask_z, z_in, z_edges_in, missing_value_temp, reentrant_x, tripolar_n, homogenize, debug)
+
+    call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
+         G, salt_z, mask_z, z_in, z_edges_in, missing_value_salt, reentrant_x, tripolar_n, homogenize, debug)
+  endif
+
+  if (debug) then
+    call hchksum(temp_z, "MOM_temp_salt_initialize_from_Z: temp_z ", G%HI)
+    call hchksum(salt_z, "MOM_temp_salt_initialize_from_Z: salt_z ", G%HI)
+    call hchksum(mask_z, "MOM_temp_salt_initialize_from_Z: mask_z ", G%HI)
+  endif
 
   kd = size(z_in,1)
 

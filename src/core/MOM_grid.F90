@@ -25,6 +25,8 @@ type, public :: ocean_grid_type
   type(MOM_domain_type), pointer :: Domain_aux => NULL() !< A non-symmetric auxiliary domain type.
   type(hor_index_type) :: HI !< Horizontal index ranges
 
+  type(ocean_grid_type), pointer :: self_untransformed
+
   integer :: isc !< The start i-index of cell centers within the computational domain
   integer :: iec !< The end i-index of cell centers within the computational domain
   integer :: jsc !< The start j-index of cell centers within the computational domain
@@ -590,6 +592,8 @@ subroutine grid_metrics_chksum(parent, G)
 
   call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
                      G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
+
+  call hchksum(G%mask2dT, trim(parent)//': mask2dT',G%HI, haloshift=halo)
 
 end subroutine grid_metrics_chksum
 
