@@ -2197,7 +2197,6 @@ subroutine diabatic_driver_init(Time, G, GV, param_file, useALEalgorithm, diag, 
     allocate(CS%frazil_heat_diag(isd:ied,jsd:jed,nz) ) ; CS%frazil_heat_diag(:,:,:) = 0.
   endif
 
-
   ! CS%useConvection is set to True IF convection will be used, otherwise False.
   ! CS%Conv_CSp is allocated by diffConvection_init()
   CS%useConvection = diffConvection_init(param_file, G, diag, Time, CS%Conv_CSp)
@@ -2205,8 +2204,9 @@ subroutine diabatic_driver_init(Time, G, GV, param_file, useALEalgorithm, diag, 
   call entrain_diffusive_init(Time, G, GV, param_file, diag, CS%entrain_diffusive_CSp)
 
   ! initialize the geothermal heating module
-  if (CS%use_geothermal) &
-    call geothermal_init(Time, G, param_file, diag, CS%geothermal_CSp)
+  if (CS%use_geothermal) then
+    call geothermal_init(Time, G, param_file, diag, CS%debug, CS%geothermal_CSp)
+  endif
 
   ! initialize module for internal tide induced mixing
   if (CS%use_int_tides) then
