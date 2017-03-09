@@ -2428,7 +2428,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
                   CS%dt, CS%ADp, CS%CDp, MOM_internal_state, CS%VarMix, CS%MEKE,  &
                   CS%OBC, CS%ALE_CSp, CS%set_visc_CSp, CS%visc, dirs, CS%ntrunc)
     else
-      print*, 'shape eta:', shape(eta)
       call initialize_dyn_split_RK2(CS%u, CS%v, CS%h, CS%uh, CS%vh, eta, Time,   &
                   G, GV, param_file, diag, CS%dyn_split_RK2_CSp, CS%restart_CSp, &
                   CS%dt, CS%ADp, CS%CDp, MOM_internal_state, CS%VarMix, CS%MEKE, &
@@ -2474,8 +2473,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   if (associated(CS%ALE_sponge_CSp)) &
     call init_ALE_sponge_diags(Time, G, diag, CS%ALE_sponge_CSp)
 
-  print*, 'HERE 7'
-
   if (CS%adiabatic) then
     call adiabatic_driver_init(Time, G, param_file, diag, CS%diabatic_CSp, &
                                CS%tracer_flow_CSp, CS%diag_to_Z_CSp)
@@ -2485,20 +2482,14 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
                               CS%sponge_CSp, CS%ALE_sponge_CSp, CS%diag_to_Z_CSp)
   endif
 
-  print*, 'HERE 8'
-
   call tracer_advect_init(Time, G, param_file, diag, CS%tracer_adv_CSp)
-  print*, 'HERE 9'
   call tracer_hor_diff_init(Time, G, param_file, diag, CS%tracer_diff_CSp, CS%neutral_diffusion_CSp)
-  print*, 'HERE 10'
 
   if (CS%use_ALE_algorithm) &
     call register_diags_TS_vardec(Time, G%HI, GV, param_file, CS)
-  print*, 'HERE 11'
 
   call lock_tracer_registry(CS%tracer_Reg)
   call callTree_waypoint("tracer registry now locked (initialize_MOM)")
-  print*, 'HERE 12'
 
   ! now register some diagnostics since tracer registry is locked
   call register_diags(Time, G, GV, CS, CS%ADp)
@@ -2506,7 +2497,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   if (CS%use_ALE_algorithm) then
     call ALE_register_diags(Time, G, diag, CS%tv%C_p, CS%tracer_Reg, CS%ALE_CSp)
   endif
-  print*, 'HERE 13'
 
   ! If need a diagnostic field, then would have been allocated in register_diags.
   if (CS%use_temperature) then

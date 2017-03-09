@@ -51,6 +51,7 @@ module MOM_geothermal
 !********+*********+*********+*********+*********+*********+*********+**
 
 use MOM_checksums, only : hchksum
+use MOM_transform_test, only : do_transform_on_this_pe, transform
 use MOM_diag_mediator, only : post_data, register_diag_field, safe_alloc_ptr
 use MOM_diag_mediator, only : register_static_field, time_type, diag_ctrl
 use MOM_error_handler, only : MOM_error, FATAL, WARNING
@@ -60,7 +61,6 @@ use MOM_grid, only : ocean_grid_type
 use MOM_variables, only : thermo_var_ptrs
 use MOM_verticalGrid, only : verticalGrid_type
 use MOM_EOS, only : calculate_density, calculate_density_derivs
-use MOM_transform_test, only : do_transform_on_this_pe, transform
 
 implicit none ; private
 
