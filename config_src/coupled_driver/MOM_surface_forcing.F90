@@ -46,6 +46,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
+use MOM_transform_test,   only : do_transform_on_this_pe, transform
 use MOM_coms,             only : reproducing_sum
 use MOM_constants,        only : hlv, hlf
 use MOM_cpu_clock,        only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
@@ -889,6 +890,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
   character(len=48)  :: stagger
   character(len=240) :: basin_file
   integer :: i, j, isd, ied, jsd, jed
+  real, dimension(:, :), allocatable :: tmp
 
   isd = G%isd ; ied = G%ied ; jsd = G%jsd ; jed = G%jed
 
@@ -1076,7 +1078,19 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
   if (CS%read_TIDEAMP) then
     TideAmp_file = trim(CS%inputdir) // trim(TideAmp_file)
-    call read_data(TideAmp_file,'tideamp',CS%TKE_tidal,domain=G%domain%mpp_domain,timelevel=1)
+
+    if (do_transform_on_this_pe()) then
+        allocate(tmp(size(CS%TKE_tidal, 2), size(CS%TKE_tidal, 1)))
+        tmp(:, :) = 0.0
+        call read_data(TideAmp_file, 'tideamp', tmp, &
+                       domain=G%domain%mpp_domain,timelevel=1)
+        call transform(tmp, CS%TKE_tidal)
+        deallocate(tmp)
+    else
+      call read_data(TideAmp_file, 'tideamp', &
+                     CS%TKE_tidal,domain=G%domain%mpp_domain,timelevel=1)
+    endif
+
     do j=jsd, jed; do i=isd, ied
       utide = CS%TKE_tidal(i,j)
       CS%TKE_tidal(i,j) = G%mask2dT(i,j)*CS%Rho0*CS%cd_tides*(utide*utide*utide)
@@ -1108,8 +1122,16 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
     call safe_alloc_ptr(CS%gust,isd,ied,jsd,jed)
     gust_file = trim(CS%inputdir) // trim(gust_file)
-    call read_data(gust_file,'gustiness',CS%gust,domain=G%domain%mpp_domain, &
-                   timelevel=1) ! units should be Pa
+    if (do_transform_on_this_pe()) then
+      allocate(tmp(size(CS%gust, 2), size(CS%gust, 1)))
+      call read_data(gust_file, 'gustiness', tmp, &
+                     domain=G%domain%mpp_domain, timelevel=1) ! units should be Pa
+      call transform(tmp, CS%gust)
+      deallocate(tmp)
+    else
+      call read_data(gust_file, 'gustiness', CS%gust, &
+                     domain=G%domain%mpp_domain, timelevel=1) ! units should be Pa
+    endif
   endif
 
 ! See whether sufficiently thick sea ice should be treated as rigid.
