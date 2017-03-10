@@ -73,6 +73,7 @@ use fms_mod, only : stdout
 use mpp_mod, only : mpp_chksum
 use MOM_domains, only : pass_var, pass_vector, TO_ALL, CGRID_NE, BGRID_NE
 use MOM_EOS, only : gsw_sp_from_sr, gsw_pt_from_ct
+use MOM_transform_test, only : do_transform_on_this_pe
 
 #include <MOM_memory.h>
 
@@ -101,6 +102,7 @@ end interface
 ! the persistnce of things like the cutsy element name "avg_kount".
 type, public ::  ocean_public_type
   type(domain2d) :: Domain    ! The domain for the surface fields.
+  type(domain2d) :: Domain_untransformed  ! An untransformed domain for the surface fields.
   logical :: is_ocean_pe      ! .true. on processors that run the ocean model.
   character(len=32) :: instance_name = '' ! A name that can be used to identify
                                  ! this instance of an ocean model, for example
@@ -723,6 +725,21 @@ subroutine initialize_ocean_public_type(input_domain, Ocean_sfc, maskmap)
 
   call mpp_get_layout(input_domain,layout)
   call mpp_get_global_domain(input_domain, xsize=xsz, ysize=ysz)
+
+  if (do_transform_on_this_pe()) then
+    if(PRESENT(maskmap)) then
+       call mpp_define_domains((/1,ysz,1,xsz/),layout,Ocean_sfc%Domain_untransformed, maskmap=maskmap)
+    else
+       call mpp_define_domains((/1,ysz,1,xsz/),layout,Ocean_sfc%Domain_untransformed)
+    endif
+  else
+    if(PRESENT(maskmap)) then
+       call mpp_define_domains((/1,xsz,1,ysz/),layout,Ocean_sfc%Domain_untransformed, maskmap=maskmap)
+    else
+       call mpp_define_domains((/1,xsz,1,ysz/),layout,Ocean_sfc%Domain_untransformed)
+    endif
+  endif
+
   if(PRESENT(maskmap)) then
      call mpp_define_domains((/1,xsz,1,ysz/),layout,Ocean_sfc%Domain, maskmap=maskmap)
   else
@@ -782,6 +799,9 @@ subroutine convert_state_to_ocean_type(state, Ocean_sfc, G, use_conT_absS, patm,
   !from conservative T to potential T and
   !from absolute (reference) salinity to practical salinity
   !
+  print*, 'is, ie, js, je', is, ie, js, je
+  print*, 'shape(Ocean_sfc%t_surf):', shape(Ocean_sfc%t_surf)
+  print*, 'shape(state%SST):', shape(state%SST)
   if(use_conT_absS) then
     do j=jsc_bnd,jec_bnd ; do i=isc_bnd,iec_bnd
       Ocean_sfc%s_surf(i,j) = gsw_sp_from_sr(state%SSS(i+i0,j+j0))

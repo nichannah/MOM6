@@ -2062,8 +2062,9 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
                     fail_if_missing=.true.)
   endif
 
-
   call callTree_waypoint("MOM parameters read (initialize_MOM)")
+
+  call MOM_transform_test_init(param_file)
 
   ! Set up the model domain and grids.
 #ifdef SYMMETRIC_MEMORY_
@@ -2082,7 +2083,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call callTree_waypoint("domains initialized (initialize_MOM)")
 
   call MOM_checksums_init(param_file)
-  call MOM_transform_test_init(param_file)
   call diag_mediator_infrastructure_init()
   call MOM_io_init(param_file)
 
@@ -2091,20 +2091,19 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   ! Create transformed horizontal index type and dynamic grid.
   if (do_transform_on_this_pe()) then
-
+    allocate(G_untrans)
     ! Keep a copy of the original HI, dG, G
-    call hor_index_init(G%Domain, HI_untrans, param_file, &
+    call MOM_domains_init(G_untrans%Domain, param_file, symmetric=symmetric, transform=.false.)
+    call hor_index_init(G_untrans%Domain, HI_untrans, param_file, &
                         local_indexing=.not.global_indexing)
     call create_dyn_horgrid(dG_untrans, HI_untrans, bathymetry_at_vel=bathy_at_vel)
-    allocate(G_untrans)
-    call clone_MOM_domain(G%Domain, G_untrans%Domain)
 
     ! Do transformation
-    call transform_hor_index(HI, HI)
+    !call transform_hor_index(HI, HI)
     call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
 
     dG%self_untransformed => dG_untrans
-    call clone_MOM_domain(G%Domain, dG%self_untransformed%Domain)
+    call clone_MOM_domain(G_untrans%Domain, dG%self_untransformed%Domain)
   else
     call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
   endif

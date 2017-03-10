@@ -64,6 +64,7 @@ use MOM_io, only : slasher
 use MOM_tracer_flow_control, only : get_chl_from_model, tracer_flow_control_CS
 use MOM_variables, only : thermo_var_ptrs
 use MOM_verticalGrid, only : verticalGrid_type
+use MOM_transform_test, only : do_transform_on_this_pe
 use time_interp_external_mod, only : init_external_field, time_interp_external
 use time_interp_external_mod, only : time_interp_external_init
 implicit none ; private
@@ -565,7 +566,12 @@ subroutine opacity_init(Time, G, param_file, diag, tracer_flow, CS, optics)
 
       filename = trim(slasher(inputdir))//trim(CS%chl_file)
       call log_param(param_file, mod, "INPUTDIR/CHL_FILE", filename)
-      CS%sbc_chl = init_external_field(filename,'CHL_A',domain=G%Domain%mpp_domain)
+      if (do_transform_on_this_pe()) then
+        CS%sbc_chl = init_external_field(filename,'CHL_A', &
+                        domain=G%self_untransformed%Domain%mpp_domain)
+      else
+        CS%sbc_chl = init_external_field(filename,'CHL_A',domain=G%Domain%mpp_domain)
+      endif
     endif
 
     call get_param(param_file, mod, "BLUE_FRAC_SW", CS%blue_frac, &

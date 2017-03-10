@@ -2955,7 +2955,8 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
         allocate(tmp(size(CS%tideamp, 2), size(CS%tideamp, 1)))
         tmp(:, :) = 0.0
         call read_data(filename, 'tideamp', tmp, &
-                       domain=G%domain%mpp_domain, timelevel=1)
+                       domain=G%self_untransformed%domain%mpp_domain, &
+                       timelevel=1)
         call transform(tmp, CS%tideamp)
         deallocate(tmp)
       else
@@ -2975,7 +2976,8 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
       allocate(tmp(size(CS%h2, 2), size(CS%h2, 1)))
       tmp(:, :) = 0.0
       call read_data(filename, 'h2', tmp, &
-                     domain=G%domain%mpp_domain, timelevel=1)
+                     domain=G%self_untransformed%domain%mpp_domain, &
+                     timelevel=1)
       call transform(tmp, CS%h2)
       deallocate(tmp)
     else
@@ -3019,17 +3021,8 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
     call log_param(param_file, mod, "INPUTDIR/NIKURASHIN_TKE_INPUT_FILE", &
                    filename)
     call safe_alloc_ptr(CS%TKE_Niku,is,ie,js,je); CS%TKE_Niku(:,:) = 0.0
-    if (do_transform_on_this_pe()) then
-      allocate(tmp(size(CS%TKE_Niku, 2), size(CS%TKE_Niku, 1)))
-      tmp(:, :) = 0.0
-      call read_data(filename, 'TKE_input', tmp, &
-                     domain=G%domain%mpp_domain, timelevel=1) ! ??? timelevel -aja
-      call transform(tmp, CS%TKE_Niku)
-      deallocate(tmp)
-    else
-      call read_data(filename, 'TKE_input', CS%TKE_Niku, &
-                   domain=G%domain%mpp_domain, timelevel=1) ! ??? timelevel -aja
-    endif
+    call read_data(filename, 'TKE_input', CS%TKE_Niku, &
+                 domain=G%domain%mpp_domain, timelevel=1) ! ??? timelevel -aja
 
     CS%TKE_Niku(:,:) = Niku_scale * CS%TKE_Niku(:,:)
 

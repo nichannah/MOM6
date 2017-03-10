@@ -1083,7 +1083,8 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
         allocate(tmp(size(CS%TKE_tidal, 2), size(CS%TKE_tidal, 1)))
         tmp(:, :) = 0.0
         call read_data(TideAmp_file, 'tideamp', tmp, &
-                       domain=G%domain%mpp_domain,timelevel=1)
+                       domain=G%self_untransformed%domain%mpp_domain, &
+                       timelevel=1)
         call transform(tmp, CS%TKE_tidal)
         deallocate(tmp)
     else
@@ -1125,7 +1126,8 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
     if (do_transform_on_this_pe()) then
       allocate(tmp(size(CS%gust, 2), size(CS%gust, 1)))
       call read_data(gust_file, 'gustiness', tmp, &
-                     domain=G%domain%mpp_domain, timelevel=1) ! units should be Pa
+                     domain=G%self_untransformed%domain%mpp_domain, &
+                     timelevel=1) ! units should be Pa
       call transform(tmp, CS%gust)
       deallocate(tmp)
     else
@@ -1168,12 +1170,22 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
   if (present(restore_salt)) then ; if (restore_salt) then
     salt_file = trim(CS%inputdir) // trim(CS%salt_restore_file)
-    CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, domain=G%Domain%mpp_domain)
+    if (do_transform_on_this_pe()) then
+      CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, &
+                                           domain=G%self_untransformed%Domain%mpp_domain)
+    else
+      CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, domain=G%Domain%mpp_domain)
+    endif
   endif ; endif
 
   if (present(restore_temp)) then ; if (restore_temp) then
     temp_file = trim(CS%inputdir) // trim(CS%temp_restore_file)
-    CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, domain=G%Domain%mpp_domain)
+    if (do_transform_on_this_pe()) then
+      CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, &
+                                           domain=G%self_untransformed%Domain%mpp_domain)
+    else
+      CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, domain=G%Domain%mpp_domain)
+    endif
   endif ; endif
 
   ! Set up any restart fields associated with the forcing.
