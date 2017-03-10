@@ -2955,7 +2955,7 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
         allocate(tmp(size(CS%tideamp, 2), size(CS%tideamp, 1)))
         tmp(:, :) = 0.0
         call read_data(filename, 'tideamp', tmp, &
-                       domain=G%self_untransformed%domain%mpp_domain, &
+                       domain=G%self_untrans%domain%mpp_domain, &
                        timelevel=1)
         call transform(tmp, CS%tideamp)
         deallocate(tmp)
@@ -2976,7 +2976,7 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
       allocate(tmp(size(CS%h2, 2), size(CS%h2, 1)))
       tmp(:, :) = 0.0
       call read_data(filename, 'h2', tmp, &
-                     domain=G%self_untransformed%domain%mpp_domain, &
+                     domain=G%self_untrans%domain%mpp_domain, &
                      timelevel=1)
       call transform(tmp, CS%h2)
       deallocate(tmp)

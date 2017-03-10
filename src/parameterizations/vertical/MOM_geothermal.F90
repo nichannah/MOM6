@@ -431,7 +431,7 @@ subroutine geothermal_init(Time, G, param_file, diag, debug, CS)
       allocate(tmp(jsd:jed, isd:ied))
       tmp(:, :) = 0.0
       call read_data(filename, trim(geotherm_var), tmp, &
-                     domain=G%self_untransformed%Domain%mpp_domain)
+                     domain=G%self_untrans%Domain%mpp_domain)
       call transform(tmp, CS%geo_heat)
       deallocate(tmp)
     else
