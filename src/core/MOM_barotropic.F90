@@ -720,6 +720,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   isvf = is - (num_cycles-1)*stencil ; ievf = ie + (num_cycles-1)*stencil
   jsvf = js - (num_cycles-1)*stencil ; jevf = je + (num_cycles-1)*stencil
 
+  print*, 'isvf, ievf, jsvf, jevf:', isvf, ievf, jsvf, jevf
+  print*, 'num_cycles:', num_cycles
+
   do_ave = query_averaging_enabled(CS%diag)
   find_etaav = present(etaav)
   find_PF = (do_ave .and. ((CS%id_PFu_bt > 0) .or. (CS%id_PFv_bt > 0)))
@@ -842,6 +845,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   if (CS%linearized_BT_PV) then
 !$OMP parallel default(none) shared(jsvf,jevf,isvf,ievf,q,CS,DCor_u,DCor_v)
 !$OMP do
+    print*, 'shape(q):', shape(q)
+    print*, 'shape(CS%q_D):', shape(CS%q_D)
     do J=jsvf-2,jevf+1 ; do I=isvf-2,ievf+1
       q(I,J) = CS%q_D(I,j)
     enddo ; enddo

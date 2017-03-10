@@ -112,6 +112,7 @@ subroutine MOM_transform_test_init(param_file)
     ! For this test the root PE will be the transformed run and the other
     ! will be the vanilla run.
     if (PE_here() == ensemble_pelist(1, 1)) then
+      print*, 'PE doing transform: ', PE_here()
       transform_on_this_pe = .true.
     endif
 
