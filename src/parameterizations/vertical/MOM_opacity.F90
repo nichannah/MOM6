@@ -568,7 +568,7 @@ subroutine opacity_init(Time, G, param_file, diag, tracer_flow, CS, optics)
       call log_param(param_file, mod, "INPUTDIR/CHL_FILE", filename)
       if (do_transform_on_this_pe()) then
         CS%sbc_chl = init_external_field(filename,'CHL_A', &
-                        domain=G%self_untransformed%Domain%mpp_domain)
+                        domain=G%self_untrans%Domain%mpp_domain)
       else
         CS%sbc_chl = init_external_field(filename,'CHL_A',domain=G%Domain%mpp_domain)
       endif

@@ -768,22 +768,22 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyCu(I,j) = G%Rad_Earth * dLat*PI_180
   enddo; enddo
 
-  if (do_transform_on_this_pe()) then
-    call transform(G%geoLonT, G%geoLonT)
-    call transform(G%geoLatT, G%geoLatT)
-    call transform(G%areaT, G%areaT)
-    call transform(G%dxT, G%dyT)
-
-    call transform(G%geoLonBu, G%geoLonBu)
-    call transform(G%geoLatBu, G%geoLatBu)
-    call transform(G%areaBu, G%areaBu)
-    call transform(G%dxBu, G%dyBu)
-
-    call transform(G%geoLonCu, G%geoLonCv)
-    call transform(G%geoLatCu, G%geoLatCv)
-    call transform(G%dxCu, G%dyCv)
-    call transform(G%dxCv, G%dyCu)
-  endif
+  !if (do_transform_on_this_pe()) then
+  !  call transform(G%geoLonT, G%geoLonT)
+  !  call transform(G%geoLatT, G%geoLatT)
+  !  call transform(G%areaT, G%areaT)
+  !  call transform(G%dxT, G%dyT)
+!
+!    call transform(G%geoLonBu, G%geoLonBu)
+!    call transform(G%geoLatBu, G%geoLatBu)
+!    call transform(G%areaBu, G%areaBu)
+!    call transform(G%dxBu, G%dyBu)
+!
+!    call transform(G%geoLonCu, G%geoLonCv)
+!    call transform(G%geoLatCu, G%geoLatCv)
+!    call transform(G%dxCu, G%dyCv)
+!    call transform(G%dxCv, G%dyCu)
+!  endif
 
   call callTree_leave("set_grid_metrics_spherical()")
 end subroutine set_grid_metrics_spherical

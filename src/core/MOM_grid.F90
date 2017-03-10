@@ -25,7 +25,7 @@ type, public :: ocean_grid_type
   type(MOM_domain_type), pointer :: Domain_aux => NULL() !< A non-symmetric auxiliary domain type.
   type(hor_index_type) :: HI !< Horizontal index ranges
 
-  type(ocean_grid_type), pointer :: self_untransformed
+  type(ocean_grid_type), pointer :: self_untrans
 
   integer :: isc !< The start i-index of cell centers within the computational domain
   integer :: iec !< The end i-index of cell centers within the computational domain

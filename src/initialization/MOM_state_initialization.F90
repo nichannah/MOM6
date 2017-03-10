@@ -266,6 +266,12 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
          case default ; call MOM_error(FATAL,  "MOM_initialize_state: "//&
               "Unrecognized layer thickness configuration "//trim(config))
       end select
+
+      if (debug) then
+        call hchksum(G%bathyT, "MOM_initialize_state: bathyT ", G%HI, haloshift=1)
+        call hchksum(h*GV%H_to_m, "MOM_initialize_state: h ", G%HI, haloshift=1)
+      endif
+
       call pass_var(h, G%Domain)
 
 !     Initialize temperature and salinity (T and S).
@@ -672,6 +678,8 @@ subroutine initialize_thickness_uniform(h, G, GV, param_file)
   do k=1,nz
     e0(K) = -G%max_depth * real(k-1) / real(nz)
   enddo
+
+  print*, 'is, ie, js, je, nz, G%max_depth', is, ie, js, je, nz, G%max_depth
 
   do j=js,je ; do i=is,ie
 !    This sets the initial thickness (in m) of the layers.  The      !
@@ -1764,11 +1772,11 @@ subroutine MOM_temp_salt_initialize_from_Z(h, tv, G, GV, PF, dirs)
 
   if (do_transform_on_this_pe()) then
     call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
-         G%self_untransformed, temp_z, mask_z, z_in, z_edges_in, &
+         G%self_untrans, temp_z, mask_z, z_in, z_edges_in, &
          missing_value_temp, reentrant_x, tripolar_n, homogenize, debug)
 
     call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
-         G%self_untransformed, salt_z, mask_z, z_in, z_edges_in, &
+         G%self_untrans, salt_z, mask_z, z_in, z_edges_in, &
          missing_value_salt, reentrant_x, tripolar_n, homogenize, debug)
 
     call transform_allocatable(temp_z)

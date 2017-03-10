@@ -1077,6 +1077,8 @@ subroutine MOM_domains_init(MOM_dom, param_file, symmetric, static_memory, &
     MOM_dom%niglobal = MOM_dom%njglobal
     MOM_dom%njglobal = tmp
   endif
+  print*, 'MOM_dom%niglobal: ', MOM_dom%niglobal
+  print*, 'MOM_dom%njglobal: ', MOM_dom%njglobal
 
   global_indices(1) = 1 ; global_indices(2) = MOM_dom%niglobal
   global_indices(3) = 1 ; global_indices(4) = MOM_dom%njglobal
@@ -1400,6 +1402,12 @@ subroutine clone_MD_to_d2D(MD_in, mpp_domain, min_halo, halo_size, symmetric, &
   endif
 
 end subroutine clone_MD_to_d2D
+
+subroutine transform_domain(D_in, D_out)
+  type(MOM_domain_type), intent(in)    :: D_in
+  type(MOM_domain_type), intent(out)    :: D_out
+
+end subroutine transform_domain
 
 subroutine get_domain_extent(Domain, isc, iec, jsc, jec, isd, ied, jsd, jed, &
                              isg, ieg, jsg, jeg, idg_offset, jdg_offset, &
