@@ -112,7 +112,6 @@ subroutine MOM_transform_test_init(param_file)
     ! For this test the root PE will be the transformed run and the other
     ! will be the vanilla run.
     if (PE_here() == ensemble_pelist(1, 1)) then
-      print*, 'PE doing transform: ', PE_here()
       transform_on_this_pe = .true.
     endif
 
@@ -542,6 +541,7 @@ subroutine transform_compare_2d(arrayA, arrayB, ret)
 
   real, allocatable, dimension(:,:) :: tmp
 
+  ret = 1
   if (.not. test_started) then
     ret = 0
     return
@@ -554,14 +554,32 @@ subroutine transform_compare_2d(arrayA, arrayB, ret)
 
     if (ret /= 0) then
       call write_to_netcdf_2d(tmp, 'transform_test_debug_A.nc')
+      deallocate(tmp)
+      return
     endif
 
+    deallocate(tmp)
+
+    allocate(tmp(size(arrayB, 2), size(arrayB, 1)))
+    call undo_transform_2d(arrayB, tmp)
+    call ensemble_compare_1d(reshape(tmp, (/ size(tmp) /)), ret)
+
+    if (ret /= 0) then
+      call write_to_netcdf_2d(tmp, 'transform_test_debug_B.nc')
+    endif
     deallocate(tmp)
   else
     call ensemble_compare_1d(reshape(arrayB, (/ size(arrayB) /)), ret)
 
     if (ret /= 0) then
       call write_to_netcdf_2d(arrayB, 'transform_test_debug_B.nc')
+      return
+    endif
+
+    call ensemble_compare_1d(reshape(arrayA, (/ size(arrayA) /)), ret)
+
+    if (ret /= 0) then
+      call write_to_netcdf_2d(arrayB, 'transform_test_debug_A.nc')
     endif
   endif
 
@@ -650,7 +668,6 @@ subroutine ensemble_compare_1d(sbuf, ret)
         a = sbuf(i)
         b = rbuf(e*sbuf_size + i)
         if ((a /= b) .and. (abs(a - b) /= 0.0)) then
-          print*, a, b
           print*, a - b
           ret = i
           exit

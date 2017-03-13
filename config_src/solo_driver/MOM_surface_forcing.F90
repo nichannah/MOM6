@@ -459,6 +459,18 @@ subroutine wind_forcing_const(state, fluxes, tau_x0, tau_y0, day, G, CS)
   call callTree_leave("wind_forcing_const")
 end subroutine wind_forcing_const
 
+subroutine swap_2d(arrayA, arrayB)
+  real, dimension(:, :), intent(inout) :: arrayA, arrayB
+
+  real, allocatable, dimension(:, :) :: tmp
+
+  allocate(tmp(size(arrayA, 1), size(arrayA, 2)))
+  tmp(:, :) = arrayA(:, :)
+  arrayA(:, :) = arrayB(:, :)
+  arrayB(:, :) = tmp(:,:)
+  deallocate(tmp)
+
+end subroutine swap_2d
 
 subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   type(surface),            intent(inout) :: state
@@ -490,24 +502,27 @@ subroutine wind_forcing_2gyre(state, fluxes, day, G, CS)
   !set the steady surface wind stresses, in units of Pa.
   PI = 4.0*atan(1.0)
 
-  print*, 'shape(fluxes%taux), shape(fluxes%tauy)', shape(fluxes%taux), shape(fluxes%tauy)
-  print*, 'is, ie, js, je', is, ie, js, je
-
-  do j=js,je ; do I=Isq,Ieq
-    fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu(I,j)-CS%South_lat) / &
-                                      CS%len_lat))
-  enddo ; enddo
-
   do J=Jsq,Jeq ; do i=is,ie
     fluxes%tauy(i,J) = 0.0
   enddo ; enddo
 
   if (do_transform_on_this_pe()) then
-    allocate(tmp(size(fluxes%taux, 1), size(fluxes%taux, 2)))
-    tmp(:, :) = fluxes%taux(:, :)
-    fluxes%taux(:, :) = fluxes%tauy(:, :)
-    fluxes%tauy(:, :) = tmp
-    deallocate(tmp)
+    allocate(tmp(size(fluxes%taux, 2), size(fluxes%taux, 1)))
+    tmp(:, :) = 0.0
+
+    do j=is,ie ; do I=Jsq,Jeq
+      tmp(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%self_untrans%geoLatCu(I,j)-CS%South_lat) / &
+                                        CS%len_lat))
+    enddo ; enddo
+
+    call transform(tmp, fluxes%taux)
+    call swap_2d(fluxes%taux, fluxes%tauy)
+
+  else
+    do j=js,je ; do I=Isq,Ieq
+      fluxes%taux(I,j) = 0.1*(1.0 - cos(2.0*PI*(G%geoLatCu(I,j)-CS%South_lat) / &
+                                        CS%len_lat))
+    enddo ; enddo
   endif
 
   call callTree_leave("wind_forcing_2gyre")
