@@ -35,8 +35,6 @@ type, public :: dyn_horgrid_type
   type(MOM_domain_type), pointer :: Domain => NULL()
   type(MOM_domain_type), pointer :: Domain_aux => NULL() ! A non-symmetric auxiliary domain type.
 
-  type(dyn_horgrid_type), pointer :: self_untransformed
-
   ! These elements can be copied from a provided hor_index_type.
   type(hor_index_type)  :: HI   ! Make this a pointer?
   integer :: isc, iec, jsc, jec ! The range of the computational domain indices

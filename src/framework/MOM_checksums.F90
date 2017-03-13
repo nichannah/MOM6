@@ -434,6 +434,7 @@ subroutine chksum_pair_uv_2d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
 
   integer :: ret
 
+  ret = 1
   if (transform_test_started()) then
     call transform_compare(arrayU, arrayV, ret)
     if (ret /= 0) then

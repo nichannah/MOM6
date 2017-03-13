@@ -190,10 +190,15 @@ subroutine MOM_accel_chksum(mesg, CAu, CAv, PFu, PFv, diffu, diffv, G, GV, pbce,
   call uvchksum_pair(diffu, mesg//" diffu", diffv, mesg//" diffv", G%HI,haloshift=0)
   if (present(pbce)) &
     call hchksum(GV%kg_m2_to_H*pbce, mesg//" pbce",G%HI,haloshift=0)
-  if (present(u_accel_bt)) &
-    call uchksum(u_accel_bt, mesg//" u_accel_bt",G%HI,haloshift=0)
-  if (present(v_accel_bt)) &
-    call vchksum(v_accel_bt, mesg//" v_accel_bt",G%HI,haloshift=0)
+  if (present(u_accel_bt) .and. present(v_accel_bt)) then
+    call uvchksum_pair(u_accel_bt, mesg//" u_accel_bt", &
+                       v_accel_bt, mesg//" v_accel_bt",G%HI,haloshift=0)
+  else
+    if (present(u_accel_bt)) &
+      call uchksum(u_accel_bt, mesg//" u_accel_bt",G%HI,haloshift=0)
+    if (present(v_accel_bt)) &
+      call vchksum(v_accel_bt, mesg//" v_accel_bt",G%HI,haloshift=0)
+  endif
 end subroutine MOM_accel_chksum
 
 ! =============================================================================

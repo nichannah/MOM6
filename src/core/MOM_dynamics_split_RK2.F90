@@ -21,7 +21,7 @@ use MOM_domains,           only : MOM_domains_init
 use MOM_domains,           only : To_South, To_West, To_All, CGRID_NE, SCALAR_PAIR
 use MOM_domains,           only : create_group_pass, do_group_pass, group_pass_type
 use MOM_domains,           only : start_group_pass, complete_group_pass
-use MOM_debugging,         only : hchksum, uchksum, vchksum
+use MOM_checksums,         only : hchksum, uchksum, vchksum, uvchksum_pair
 use MOM_error_handler,     only : MOM_error, MOM_mesg, FATAL, WARNING, is_root_pe
 use MOM_error_handler,     only : MOM_set_verbosity, callTree_showQuery
 use MOM_error_handler,     only : callTree_enter, callTree_leave, callTree_waypoint
@@ -293,6 +293,11 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   showCallTree = callTree_showQuery()
   if (showCallTree) call callTree_enter("step_MOM_dyn_split_RK2(), MOM_dynamics_split_RK2.F90")
 
+  uh_in(:,:,:) = 0.0
+  vh_in(:,:,:) = 0.0
+  u_bc_accel(:,:,:) = 0.0
+  v_bc_accel(:,:,:) = 0.0
+
 !$OMP parallel do default(none) shared(nz,G,up,vp,hp,h)
   do k = 1, nz
     do j=G%jsd,G%jed   ; do i=G%isdB,G%iedB ;  up(i,j,k) = 0.0 ; enddo ; enddo
@@ -417,8 +422,8 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call PressureForce(h, tv, CS%PFu, CS%PFv, G, GV, CS%PressureForce_CSp, &
                      CS%ALE_CSp, p_surf, CS%pbce, CS%eta_PF)
   if (CS%debug) then
-    call uchksum(CS%PFu, 'After PressureForce CS%PFu', G%HI, haloshift=0)
-    call vchksum(CS%PFv, 'After PressureForce CS%PFv', G%HI, haloshift=0)
+    call uvchksum_pair(CS%PFu, 'After PressureForce CS%PFu', &
+                       CS%PFv, 'After PressureForce CS%PFv', G%HI, haloshift=0)
   endif
 
   if (dyn_p_surf) then
@@ -451,8 +456,8 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   if (showCallTree) call callTree_wayPoint("done with CorAdCalc (step_MOM_dyn_split_RK2)")
 
   if (CS%debug) then
-    call uchksum(CS%Cau, '0: After CorAdCalc: CAu', G%HI, haloshift=1)
-    call vchksum(CS%Cav, '0: After CorAdCalc: CAv', G%HI, haloshift=1)
+    call uvchksum_pair(CS%Cau, '0: After CorAdCalc: CAu', &
+                       CS%Cav, '0: After CorAdCalc: CAv', G%HI, haloshift=1)
   endif
 
 ! u_bc_accel = CAu + PFu + diffu(u[n-1])
@@ -469,13 +474,10 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   call cpu_clock_end(id_clock_btforce)
 
   if (CS%debug) then
-    call uchksum(CS%diffu, '0: After horizontal_viscosity: diffu', G%HI, haloshift=1)
-    call vchksum(CS%diffv, '0: After horizontal_viscosity: diffv', G%HI, haloshift=1)
-  endif
-
-  if (CS%debug) then
-    call uchksum(u_bc_accel, '0: After horizontal_viscosity: u_bc_accel', G%HI, haloshift=1)
-    call vchksum(v_bc_accel, '0: After horizontal_viscosity: v_bc_accel', G%HI, haloshift=1)
+    call uvchksum_pair(CS%diffu, '0: After horizontal_viscosity: diffu', &
+                       CS%diffv, '0: After horizontal_viscosity: diffv', G%HI, haloshift=1)
+    call uvchksum_pair(u_bc_accel, '0: After horizontal_viscosity: u_bc_accel', &
+                       v_bc_accel, '0: After horizontal_viscosity: v_bc_accel', G%HI, haloshift=1)
   endif
 
 
@@ -512,14 +514,14 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
   enddo
 
   if (CS%debug) then
-    call uchksum(G%mask2dCu,"before set_viscous_ML: mask2dCu",G%HI,haloshift=0)
-    call vchksum(G%mask2dCv,"before set_viscous_ML: mask2dCv",G%HI,haloshift=0)
-    call uchksum(u_bc_accel,"before set_viscous_ML: u_bc_accel",G%HI,haloshift=0)
-    call vchksum(v_bc_accel,"before set_viscous_ML: v_bc_accel",G%HI,haloshift=0)
-    call uchksum(u,"before set_viscous_ML: u",G%HI,haloshift=0)
-    call vchksum(v,"before set_viscous_ML: v",G%HI,haloshift=0)
-    call uchksum(up,"before set_viscous_ML: up",G%HI,haloshift=0)
-    call vchksum(vp,"before set_viscous_ML: vp",G%HI,haloshift=0)
+    call uvchksum_pair(G%mask2dCu,"before set_viscous_ML: mask2dCu", &
+                       G%mask2dCv,"before set_viscous_ML: mask2dCv", G%HI,haloshift=0)
+    call uvchksum_pair(u_bc_accel,"before set_viscous_ML: u_bc_accel", &
+                       v_bc_accel,"before set_viscous_ML: v_bc_accel", G%HI,haloshift=0)
+    call uvchksum_pair(u,"before set_viscous_ML: u", &
+                       v,"before set_viscous_ML: v",G%HI,haloshift=0)
+    call uvchksum_pair(up,"before set_viscous_ML: up", &
+                       vp,"before set_viscous_ML: vp",G%HI,haloshift=0)
   endif
 
 
@@ -559,6 +561,11 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
 ! u_accel_bt = layer accelerations due to barotropic solver
   if (associated(CS%BT_cont) .or. CS%BT_use_layer_fluxes) then
     call cpu_clock_begin(id_clock_continuity)
+    if (CS%debug) then
+      call uvchksum_pair(u, "Before continuity u" , v, "Before continuity v" , G%HI, haloshift=0)
+      call hchksum(hp, "Before continuity hp" , G%HI, haloshift=0)
+    endif
+
     call continuity(u, v, h, hp, uh_in, vh_in, dt, G, GV, &
                     CS%continuity_CSp, OBC=CS%OBC, visc_rem_u=CS%visc_rem_u, &
                     visc_rem_v=CS%visc_rem_v, BT_cont=CS%BT_cont)
@@ -571,11 +578,10 @@ subroutine step_MOM_dyn_split_RK2(u, v, h, tv, visc, &
     endif
     if (showCallTree) call callTree_wayPoint("done with continuity[BT_cont] (step_MOM_dyn_split_RK2)")
     if (CS%debug) then
-      call uchksum(u, "After continuity u" , G%HI, haloshift=0)
-      call vchksum(v, "After continuity v" , G%HI, haloshift=0)
+      call uvchksum_pair(u, "After continuity u" , v, "After continuity v" , G%HI, haloshift=0)
       call hchksum(hp, "After continuity hp" , G%HI, haloshift=0)
-      call uchksum(uh_in, "After continuity uh_in" , G%HI, haloshift=0)
-      call vchksum(vh_in, "After continuity vh_in" , G%HI, haloshift=0)
+      call uvchksum_pair(uh_in, "After continuity uh_in" , &
+                         vh_in, "After continuity vh_in" , G%HI, haloshift=0)
       call MOM_BT_cont_chksum(CS%BT_cont, "continuity", G)
     endif
   endif
