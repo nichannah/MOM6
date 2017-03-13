@@ -252,13 +252,15 @@ end subroutine chksum_h_2d
 
 ! =====================================================================
 
-subroutine chksum_pair_B_2d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
+subroutine chksum_pair_B_2d(arrayA, mesgA, arrayB, mesgB, HI, symmetric, haloshift)
   type(hor_index_type),             intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
   character(len=*),                 intent(in) :: mesgA, mesgB !< Identifying messages
+  logical,                optional, intent(in) :: symmetric !< If true, do the checksums on the full symmetric computational domain.
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
+  logical :: sym
 
   if (transform_test_started()) then
     call transform_compare(arrayA, arrayB, ret)
@@ -270,12 +272,18 @@ subroutine chksum_pair_B_2d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
     endif
   endif
 
+  sym = .false. ; if (present(symmetric)) sym = symmetric
+
   if (present(haloshift)) then
-    call chksum_B_2d(arrayA, mesgA, HI, haloshift, compare=.false.)
-    call chksum_B_2d(arrayB, mesgB, HI, haloshift, compare=.false.)
+    call chksum_B_2d(arrayA, mesgA, HI, haloshift, &
+                     symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayB, mesgB, HI, haloshift, &
+                     symmetric=sym, compare=.false.)
   else
-    call chksum_B_2d(arrayA, mesgA, HI, compare=.false.)
-    call chksum_B_2d(arrayB, mesgB, HI, compare=.false.)
+    call chksum_B_2d(arrayA, mesgA, HI, &
+                     symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayB, mesgB, HI, &
+                     symmetric=sym, compare=.false.)
   endif
 
 end subroutine chksum_pair_B_2d
@@ -287,6 +295,7 @@ subroutine chksum_pair_B_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
+  logical :: sym
 
   if (transform_test_started()) then
     call transform_compare(arrayA, arrayB, ret)

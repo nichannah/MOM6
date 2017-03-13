@@ -257,11 +257,12 @@ subroutine create_dyn_horgrid(G, HI, bathymetry_at_vel)
 
 end subroutine create_dyn_horgrid
 
-subroutine create_dyn_horgrid_untrans(dG_untrans, HI_untrans, param_file)
+subroutine create_dyn_horgrid_untrans(dG_untrans, HI_untrans, param_file, domain_untrans)
 
   type(dyn_horgrid_type), pointer :: dG_untrans  !< A pointer to the dynamic horizontal grid type
   type(hor_index_type), intent(inout) :: HI_untrans  !  A hor_index_type for array extents
-  type(param_file_type),  intent(in) :: param_file  !< structure indicating paramater file to parse
+  type(param_file_type), intent(in) :: param_file  !< structure indicating paramater file to parse
+  type(MOM_domain_type), optional, pointer, intent(in) :: domain_untrans
 
   logical :: symmetric, global_indexing, bathy_at_vel
   type(MOM_domain_type), pointer :: Domain => NULL()
@@ -284,12 +285,16 @@ subroutine create_dyn_horgrid_untrans(dG_untrans, HI_untrans, param_file)
                  "are entirely determined from thickness points.", &
                  default=.false.)
 
-  call MOM_domains_init(Domain, param_file, &
-                        symmetric=symmetric, transform=.false.)
-  call hor_index_init(Domain, HI_untrans, param_file, &
+  if (present(domain_untrans)) then
+    domain => domain_untrans
+  else
+    call MOM_domains_init(Domain, param_file, &
+                          symmetric=symmetric, transform=.false.)
+  endif
+  call hor_index_init(domain, HI_untrans, param_file, &
                       local_indexing=.not.global_indexing)
   call create_dyn_horgrid(dG_untrans, HI_untrans, bathymetry_at_vel=bathy_at_vel)
-  call clone_MOM_domain(Domain, dG_untrans%Domain)
+  call clone_MOM_domain(domain, dG_untrans%Domain)
 
 end subroutine create_dyn_horgrid_untrans
 
