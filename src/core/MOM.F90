@@ -24,7 +24,7 @@ use MOM_variables, only: thermo_var_ptrs
 
 ! Infrastructure modules
 use MOM_checksums,            only : MOM_checksums_init, hchksum, uchksum, vchksum, uvchksum_pair
-use MOM_transform_test,       only : MOM_transform_test_init, transform_test_start
+use MOM_transform_test,       only : MOM_transform_test_init
 use MOM_transform_test,       only : do_transform_test, do_transform_on_this_pe
 use MOM_transform_test,       only : transform_allocatable, transform_allocatable_and_swap
 use MOM_checksum_packages,    only : MOM_thermo_chksum, MOM_state_chksum, MOM_accel_chksum
@@ -2097,7 +2097,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
   call clone_MOM_domain(G%Domain, dG%Domain)
 
-  call transform_test_start()
 
   call verticalGridInit( param_file, CS%GV )
   GV => CS%GV
@@ -2232,14 +2231,9 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     call create_dyn_horgrid_untrans(dG_untrans, HI_untrans, param_file)
     call MOM_initialize_fixed(dG_untrans, CS%OBC, param_file, &
                               write_geom_files, dirs%output_directory)
-    print*, 't: shape(dG_untrans%dyT), shape(dG_untrans%dxT)', shape(dG_untrans%dyT), shape(dG_untrans%dxT)
-    print*, 't: shape(dG%dyT), shape(dG%dxT)', shape(dG%dyT), shape(dG%dxT)
-    print*, 't: shape(dG_untrans%dxBu), shape(dG_untrans%dyBu)', shape(dG_untrans%dxBu), shape(dG_untrans%dyBu)
-    print*, 't: shape(dG%dxBu), shape(dG%dyBu)', shape(dG%dxBu), shape(dG%dyBu)
     call transform_init_dyn_horgrid(dG_untrans, dG)
   else
     call MOM_initialize_fixed(dG, CS%OBC, param_file, write_geom_files, dirs%output_directory)
-    print*, 'shape(dG%dyT), shape(dG%dxT)', shape(dG%dyT), shape(dG%dxT)
   endif
 
   if (CS%debug) then
@@ -2270,6 +2264,7 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     call clone_MOM_domain(dG_untrans%Domain, G%self_untrans%Domain)
     call MOM_grid_init(G%self_untrans, param_file, HI_untrans, bathymetry_at_vel=bathy_at_vel)
     call copy_dyngrid_to_MOM_grid(dG_untrans, G%self_untrans)
+    call destroy_dyn_horgrid(dG_untrans)
   endif
 
   call destroy_dyn_horgrid(dG)

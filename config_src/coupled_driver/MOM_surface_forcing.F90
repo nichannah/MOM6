@@ -1083,7 +1083,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
         allocate(tmp(size(CS%TKE_tidal, 2), size(CS%TKE_tidal, 1)))
         tmp(:, :) = 0.0
         call read_data(TideAmp_file, 'tideamp', tmp, &
-                       domain=G%self_untransformed%domain%mpp_domain, &
+                       domain=G%self_untrans%domain%mpp_domain, &
                        timelevel=1)
         call transform(tmp, CS%TKE_tidal)
         deallocate(tmp)
@@ -1126,7 +1126,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
     if (do_transform_on_this_pe()) then
       allocate(tmp(size(CS%gust, 2), size(CS%gust, 1)))
       call read_data(gust_file, 'gustiness', tmp, &
-                     domain=G%self_untransformed%domain%mpp_domain, &
+                     domain=G%self_untrans%domain%mpp_domain, &
                      timelevel=1) ! units should be Pa
       call transform(tmp, CS%gust)
       deallocate(tmp)
@@ -1172,7 +1172,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
     salt_file = trim(CS%inputdir) // trim(CS%salt_restore_file)
     if (do_transform_on_this_pe()) then
       CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, &
-                                           domain=G%self_untransformed%Domain%mpp_domain)
+                                           domain=G%self_untrans%Domain%mpp_domain)
     else
       CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, domain=G%Domain%mpp_domain)
     endif
@@ -1182,7 +1182,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
     temp_file = trim(CS%inputdir) // trim(CS%temp_restore_file)
     if (do_transform_on_this_pe()) then
       CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, &
-                                           domain=G%self_untransformed%Domain%mpp_domain)
+                                           domain=G%self_untrans%Domain%mpp_domain)
     else
       CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, domain=G%Domain%mpp_domain)
     endif

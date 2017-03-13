@@ -30,7 +30,7 @@ use ensemble_manager_mod, only : get_ensemble_size, get_ensemble_id, get_ensembl
 
 implicit none ; private
 
-public :: MOM_transform_test_init, transform_test_start, transform_test_started
+public :: MOM_transform_test_init, transform_test_started
 public :: transform, transform_and_swap
 public :: transform_allocatable, transform_allocatable_and_swap
 public :: do_transform_test, do_transform_on_this_pe
@@ -85,6 +85,10 @@ subroutine MOM_transform_test_init(param_file)
   integer, dimension(6) :: ensemble_size
   integer, dimension(:, :), allocatable :: ensemble_pelist
 
+  if (test_started) then
+    return
+  endif
+
   call log_version(param_file, mod, version)
 
   call get_param(param_file, mod, "TRANSFORM_TEST", &
@@ -119,15 +123,9 @@ subroutine MOM_transform_test_init(param_file)
 
   endif
 
-  test_started = .false.
-
-end subroutine MOM_transform_test_init
-
-subroutine transform_test_start()
-
   test_started = .true.
 
-end subroutine transform_test_start
+end subroutine MOM_transform_test_init
 
 function transform_test_started()
     logical :: transform_test_started
