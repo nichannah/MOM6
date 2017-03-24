@@ -3,7 +3,7 @@ module MOM_PressureForce_AFV
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, vchksum, uchksum
+use MOM_checksums, only : hchksum
 use MOM_diag_mediator, only : post_data, register_diag_field
 use MOM_diag_mediator, only : safe_alloc_ptr, diag_ctrl, time_type
 use MOM_error_handler, only : MOM_error, FATAL, WARNING, is_root_pe
@@ -624,11 +624,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     endif
   endif
 
-  if (.false.) then
-    call uchksum(PFu,"Before PressureForce PFu",G%HI,haloshift=0)
-    call vchksum(PFv,"Before PressureForce PFv",G%HI,haloshift=0)
-  endif
-
 !$OMP parallel do default(none) shared(use_p_atm,rho_ref,G,GV,e,     &
 !$OMP                                  p_atm,nz,use_EOS,use_ALE,PRScheme,T_t,T_b,S_t, &
 !$OMP                                  S_b,CS,tv,tv_tmp,h,PFu,I_Rho0,h_neglect,PFv,dM)&
@@ -745,25 +740,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       do jb=Jsq_bk,Jeq_bk+1 ; do ib=Isq_bk,Ieq_bk+1
         pa_bk(ib,jb) = pa_bk(ib,jb) + dpa_bk(ib,jb)
       enddo ; enddo
-
-      if (.false.) then
-        call hchksum(pa_bk(:, :),"pa_bk", G%HI,haloshift=0)
-        call hchksum(intz_dpa_bk(:, :),"intz_dpa_bk", G%HI,haloshift=0)
-        call hchksum(h(:, :, k),"h", G%HI,haloshift=0)
-        call hchksum(e(:, :, k),"e", G%HI,haloshift=0)
-
-        call uchksum(intx_dpa_bk(:, :),"intx_dpa_bk", G%HI,haloshift=0)
-        call vchksum(inty_dpa_bk(:, :),"inty_dpa_bk", G%HI,haloshift=0)
-
-        call uchksum(intx_pa_bk(:, :),"intx_pa_bk", G%HI,haloshift=0)
-        call vchksum(inty_pa_bk(:, :),"inty_pa_bk", G%HI,haloshift=0)
-
-        call uchksum(G%IdxCu(:, :),"IdxCu", G%HI,haloshift=0)
-        call vchksum(G%IdyCv(:, :),"IdyCv", G%HI,haloshift=0)
-
-        call uchksum(PFu(:, :, k),"PFu During PressureForce", G%HI,haloshift=0)
-        call vchksum(PFv(:, :, k),"PFv During PressureForce", G%HI,haloshift=0)
-      endif
     enddo
 
     if (CS%GFS_scale < 1.0) then

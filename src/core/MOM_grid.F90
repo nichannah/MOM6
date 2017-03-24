@@ -3,7 +3,8 @@ module MOM_grid
 
 ! This file is part of MOM6. See LICENSE.md for the license.
 
-use MOM_checksums, only : hchksum, qchksum, hchksum_pair, uvchksum_pair, bchksum_pair
+use MOM_checksums, only : hchksum, bchksum
+use MOM_checksums, only : hchksum_pair, uvchksum, bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe
 use MOM_hor_index, only : hor_index_type, hor_index_init, transform_hor_index
 use MOM_domains, only : MOM_domain_type, get_domain_extent, compute_block_extent
@@ -547,51 +548,46 @@ subroutine grid_metrics_chksum(parent, G)
 
   halo = min(G%ied-G%isd, G%jed-G%jsd, 1)
 
-  call hchksum_pair(G%dxT, trim(parent)//': dxT', &
-                    G%dyT, trim(parent)//': dyT', G%HI, haloshift=halo)
+  call hchksum_pair(trim(parent)//': d[xy]T', G%dxT, G%dyT, G%HI, haloshift=halo)
 
-  call hchksum_pair(G%IdxT, trim(parent)//': IdxT', &
-                    G%IdyT, trim(parent)//': IdyT', G%HI, haloshift=halo)
+  call hchksum_pair(trim(parent)//': IdxT', G%IdxT, G%IdyT, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%dxCu, trim(parent)//': dxCu', &
-                     G%dyCv, trim(parent)//': dyCv', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': dxC[uv]', G%dxCu, G%dyCv, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%IdxCu, trim(parent)//': IdxCu', &
-                     G%IdyCv, trim(parent)//': IdyCv', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': Id[xy]C[uv]', &
+                G%IdxCu, G%IdyCv, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%dxCv, trim(parent)//': dxCv', &
-                     G%dyCu, trim(parent)//': dyCu', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': d[xy]C[uv]', G%dxCu, G%dyCv, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%IdxCv, trim(parent)//': IdxCv', &
-                     G%IdyCu, trim(parent)//': IdyCu', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': Id[xy]C[uv]', &
+                G%IdxCv, G%IdyCu, G%HI, haloshift=halo)
 
-  call Bchksum_pair(G%dxBu, trim(parent)//': dxBu', &
-                    G%dyBu, trim(parent)//': dyBu', G%HI, haloshift=halo)
+  call Bchksum_pair(trim(parent)//': d[xy]Bu', &
+                    G%dxBu, G%dyBu, G%HI, haloshift=halo)
 
-  call Bchksum_pair(G%IdxBu, trim(parent)//': IdxBu', &
-                    G%IdyBu, trim(parent)//': IdyBu', G%HI, haloshift=halo)
+  call Bchksum_pair(trim(parent)//': Id[xy]Bu', &
+                    G%IdxBu, G%IdyBu, G%HI, haloshift=halo)
 
   call hchksum(G%areaT, trim(parent)//': areaT',G%HI, haloshift=halo)
 
-  call qchksum(G%areaBu ,trim(parent)//': areaBu',G%HI, haloshift=halo)
+  call Bchksum(G%areaBu ,trim(parent)//': areaBu',G%HI, haloshift=halo)
 
   call hchksum(G%IareaT, trim(parent)//': IareaT',G%HI, haloshift=halo)
 
-  call qchksum(G%IareaBu, trim(parent)//': IareaBu',G%HI, haloshift=halo)
+  call Bchksum(G%IareaBu, trim(parent)//': IareaBu',G%HI, haloshift=halo)
 
   call hchksum(G%geoLonT, trim(parent)//': geoLonT',G%HI, haloshift=halo)
 
   call hchksum(G%geoLatT, trim(parent)//': geoLatT',G%HI, haloshift=halo)
 
-  call qchksum(G%geoLonBu, trim(parent)//': geoLonBu',G%HI, haloshift=halo)
+  call Bchksum(G%geoLonBu, trim(parent)//': geoLonBu',G%HI, haloshift=halo)
 
-  call qchksum(G%geoLatBu, trim(parent)//': geoLatBu',G%HI, haloshift=halo)
+  call Bchksum(G%geoLatBu, trim(parent)//': geoLatBu',G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%geoLonCu, trim(parent)//': geoLonCu', &
-                     G%geoLonCv, trim(parent)//': geoLonCv', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': geoLonC[uv]', G%geoLonCu, G%geoLonCv, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
-                     G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': geoLatCu', &
+                G%geoLatCu, G%geoLatCv, G%HI, haloshift=halo)
 
   call hchksum(G%mask2dT, trim(parent)//': mask2dT',G%HI, haloshift=halo)
 

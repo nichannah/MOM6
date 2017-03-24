@@ -66,8 +66,8 @@ module MOM_grid_initialize
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_checksums, only : hchksum, qchksum, uchksum, vchksum, Bchksum
-use MOM_checksums, only : hchksum_pair, uvchksum_pair, Bchksum_pair
+use MOM_checksums, only : hchksum, Bchksum
+use MOM_checksums, only : hchksum_pair, uvchksum, Bchksum_pair
 use MOM_transform_test, only : do_transform_on_this_pe, transform, transform_and_swap
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
@@ -172,81 +172,59 @@ subroutine dyn_grid_metrics_chksum(parent, G)
   character(len=*),      intent(in) :: parent  !< A string identifying the caller
   type(dyn_horgrid_type), intent(in) :: G      !< The dynamic horizontal grid type
 
-  real, dimension(G%isd :G%ied ,G%jsd :G%jed ) :: tempH
-  real, dimension(G%IsdB:G%IedB,G%JsdB:G%JedB) :: tempQ
-  real, dimension(G%IsdB:G%IedB,G%jsd :G%jed ) :: tempE
-  real, dimension(G%isd :G%ied ,G%JsdB:G%JedB) :: tempN
-  integer :: i, j, isd, ied, jsd, jed, halo
-  integer :: is, ie, js, je, Isq, Ieq, Jsq, Jeq, IsdB, IedB, JsdB, JedB
+  integer :: halo
 
-  is = G%isc ; ie = G%iec ; js = G%jsc ; je = G%jec
-  isd = G%isd ; ied = G%ied ; jsd = G%jsd ; jed = G%jed
-  Isq = G%IscB ; Ieq = G%IecB ; Jsq = G%JscB ; Jeq = G%JecB
-  IsdB = G%IsdB ; IedB = G%IedB ; JsdB = G%JsdB ; JedB = G%JedB
-  halo = min(ied-ie, jed-je, 1)
-! halo=1 ! AJA
+  halo = min(G%ied-G%iec, G%jed-G%jec, 1)
 
-  call hchksum_pair(G%dxT, trim(parent)//': dxT', &
-                    G%dyT, trim(parent)//': dyT', G%HI, haloshift=halo)
+  call hchksum_pair(trim(parent)//': d[xy]T', &
+                    G%dxT, G%dyT, G%HI, haloshift=halo)
 
-  call hchksum_pair(G%IdxT, trim(parent)//': IdxT', &
-                    G%IdyT, trim(parent)//': IdyT', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': dxC[uv]', G%dxCu, G%dyCv, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%dxCu, trim(parent)//': dxCu', &
-                     G%dyCv, trim(parent)//': dyCv', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': dxC[uv]', &
+                G%dxCv, G%dyCu, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%IdxCu, trim(parent)//': IdxCu', &
-                     G%IdyCv, trim(parent)//': IdyCv', G%HI, haloshift=halo)
+  call Bchksum_pair(trim(parent)//': dxB[uv]', &
+                    G%dxBu, G%dyBu, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%dxCv, trim(parent)//': dxCv', &
-                     G%dyCu, trim(parent)//': dyCu', G%HI, haloshift=halo)
+  call hchksum_pair(trim(parent)//': Id[xy]T', &
+                    G%IdxT, G%IdyT, G%HI, haloshift=halo)
 
-  call uvchksum_pair(G%IdxCv, trim(parent)//': IdxCv', &
-                     G%IdyCu, trim(parent)//': IdyCu', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': Id[xy]C[uv]', &
+                G%IdxCu, G%IdyCv, G%HI, haloshift=halo)
 
-  call Bchksum_pair(G%dxBu, trim(parent)//': dxBu', &
-                    G%dyBu, trim(parent)//': dyBu', G%HI, haloshift=halo)
+  call uvchksum(trim(parent)//': Id[xy]C[uv]', &
+                G%IdxCv, G%IdyCu, G%HI, haloshift=halo)
 
-  call Bchksum_pair(G%IdxBu, trim(parent)//': IdxBu', &
-                    G%IdyBu, trim(parent)//': IdyBu', G%HI, haloshift=halo)
+  call Bchksum_pair(trim(parent)//': Id[xy]B[uv]', &
+                    G%IdxBu, G%IdyBu, G%HI, haloshift=halo)
 
-  do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%areaT(i,j) ; enddo ; enddo
-  call hchksum(tempH,trim(parent)//': areaT',G%HI, haloshift=halo)
+  call hchksum(G%areaT, trim(parent)//': areaT',G%HI, haloshift=halo)
+  call Bchksum(G%areaBu, trim(parent)//': areaBu',G%HI, haloshift=halo)
 
-  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%areaBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': areaBu',G%HI, haloshift=halo)
-
-  do i=isd,ied ; do j=jsd,jed ; tempH(i,j) = G%IareaT(i,j) ; enddo ; enddo
-  call hchksum(tempH,trim(parent)//': IareaT',G%HI, haloshift=halo)
-
-  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%IareaBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': IareaBu',G%HI, haloshift=halo)
+  call hchksum(G%IareaT, trim(parent)//': IareaT',G%HI, haloshift=halo)
+  call Bchksum(G%IareaBu, trim(parent)//': IareaBu',G%HI, haloshift=halo)
 
   call hchksum(G%geoLonT,trim(parent)//': geoLonT',G%HI, haloshift=halo)
-
   call hchksum(G%geoLatT,trim(parent)//': geoLatT',G%HI, haloshift=halo)
-
-  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLonBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLonBu',G%HI, haloshift=halo)
-
-  do I=IsdB,IedB ; do J=JsdB,JedB ; tempQ(I,J) = G%geoLatBu(I,J) ; enddo ; enddo
-  call qchksum(tempQ,trim(parent)//': geoLatBu',G%HI, haloshift=halo)
-
-  call uvchksum_pair(G%geoLonCu, trim(parent)//': geoLonCu', &
-                     G%geoLonCv, trim(parent)//': geoLonCv', G%HI, haloshift=halo)
-
-  call uvchksum_pair(G%geoLatCu, trim(parent)//': geoLatCu', &
-                     G%geoLatCv, trim(parent)//': geoLatCv', G%HI, haloshift=halo)
 
   call hchksum(G%bathyT, trim(parent)//': depth', G%HI, haloshift=1)
   call hchksum(G%mask2dT, trim(parent)//': mask2dT ', G%HI)
-  call uvchksum_pair(G%mask2dCu, trim(parent)//': mask2dCu ', &
-                     G%mask2dCv, trim(parent)//': mask2dCv ', G%HI)
+  call uvchksum(trim(parent)//': mask2dCu ', G%mask2dCu, G%mask2dCv, G%HI)
   call Bchksum(G%mask2dBu, trim(parent)//': mask2dBu ', G%HI)
 
   call Bchksum(G%CoriolisBu, trim(parent)//': f ', G%HI)
-  call hchksum_pair(G%dF_dx, trim(parent)//': dF_dx ', &
-                    G%dF_dy, trim(parent)//': dF_dy ', G%HI)
+  call hchksum_pair(trim(parent)//': dF_d[xy] ', &
+                    G%dF_dx, G%dF_dy, G%HI)
+
+  call Bchksum(G%geoLonBu, trim(parent)//': geoLonBu',G%HI, haloshift=halo)
+  call Bchksum(G%geoLatBu, trim(parent)//': geoLatBu',G%HI, haloshift=halo)
+
+  call uvchksum(trim(parent)//': geoLonC[uv]', &
+                G%geoLonCu, G%geoLonCv, G%HI, haloshift=halo)
+
+  call uvchksum(trim(parent)//': geoLatC[uv]', &
+                G%geoLatCu, G%geoLatCv, G%HI, haloshift=halo)
 
 end subroutine dyn_grid_metrics_chksum
 

@@ -299,7 +299,7 @@ subroutine create_dyn_horgrid_untrans(dG_untrans, HI_untrans, param_file, domain
 end subroutine create_dyn_horgrid_untrans
 
 !> Initialise G_trans using G
-subroutine transform_init_dyn_horgrid(G, G_trans) 
+subroutine transform_init_dyn_horgrid(G, G_trans)
 
   type(dyn_horgrid_type), intent(in) :: G !< Original grid
   type(dyn_horgrid_type), intent(inout) :: G_trans !< Transformed grid

@@ -30,16 +30,16 @@ use MOM_transform_test, only : transform_compare, transform_test_started
 
 implicit none ; private
 
-public :: hchksum, Bchksum, uchksum, vchksum, qchksum, chksum, is_NaN
-public :: hchksum_pair, uvchksum_pair, Bchksum_pair
+public :: hchksum, Bchksum, is_NaN, chksum
+public :: hchksum_pair, uvchksum, Bchksum_pair
 public :: MOM_checksums_init
 
 interface hchksum_pair
   module procedure chksum_pair_h_2d, chksum_pair_h_3d
 end interface
 
-interface uvchksum_pair
-  module procedure chksum_pair_uv_2d, chksum_pair_uv_3d
+interface uvchksum
+  module procedure chksum_uv_2d, chksum_uv_3d
 end interface
 
 interface Bchksum_pair
@@ -52,18 +52,6 @@ end interface
 
 interface Bchksum
   module procedure chksum_B_2d, chksum_B_3d
-end interface
-
-interface qchksum
-  module procedure chksum_B_2d, chksum_B_3d
-end interface
-
-interface uchksum
-  module procedure chksum_u_2d, chksum_u_3d
-end interface
-
-interface vchksum
-  module procedure chksum_v_2d, chksum_v_3d
 end interface
 
 interface chksum
@@ -88,38 +76,39 @@ contains
 
 ! =====================================================================
 
-subroutine chksum_pair_h_2d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
+subroutine chksum_pair_h_2d(mesg, arrayA, arrayB, HI, haloshift)
+  character(len=*),                 intent(in) :: mesg !< Identifying messages
   type(hor_index_type),             intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
-  character(len=*),                 intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
 
+  ret = 0
   if (transform_test_started()) then
     call transform_compare(arrayA, arrayB, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_h_2d '//trim(mesgA))
+                        'Transfrom test fail in chksum_pair_h_2d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
   if (present(haloshift)) then
-    call chksum_h_2d(arrayA, mesgA, HI, haloshift, compare=.false.)
-    call chksum_h_2d(arrayB, mesgB, HI, haloshift, compare=.false.)
+    call chksum_h_2d(arrayA, 'x '//mesg, HI, haloshift)
+    call chksum_h_2d(arrayB, 'y '//mesg, HI, haloshift)
   else
-    call chksum_h_2d(arrayA, mesgA, HI, compare=.false.)
-    call chksum_h_2d(arrayB, mesgB, HI, compare=.false.)
+    call chksum_h_2d(arrayA, 'x '//mesg, HI)
+    call chksum_h_2d(arrayB, 'y '//mesg, HI)
   endif
 
 end subroutine chksum_pair_h_2d
 
-subroutine chksum_pair_h_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
-  type(hor_index_type),                intent(in) :: HI     !< A horizontal index type
+subroutine chksum_pair_h_3d(mesg, arrayA, arrayB, HI, haloshift)
+  character(len=*),                    intent(in) :: mesg !< Identifying messages
+  type(hor_index_type),                intent(in) :: HI   !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
-  character(len=*),                    intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
@@ -128,18 +117,18 @@ subroutine chksum_pair_h_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
     call transform_compare(arrayA, arrayB, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_h_3d '//trim(mesgA))
+                        'Transfrom test fail in chksum_pair_h_3d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
   if (present(haloshift)) then
-    call chksum_h_3d(arrayA, mesgA, HI, haloshift, compare=.false.)
-    call chksum_h_3d(arrayB, mesgB, HI, haloshift, compare=.false.)
+    call chksum_h_3d(arrayA, 'x '//mesg, HI, haloshift)
+    call chksum_h_3d(arrayB, 'y '//mesg, HI, haloshift)
   else
-    call chksum_h_3d(arrayA, mesgA, HI, compare=.false.)
-    call chksum_h_3d(arrayB, mesgB, HI, compare=.false.)
+    call chksum_h_3d(arrayA, 'x '//mesg, HI)
+    call chksum_h_3d(arrayB, 'y '//mesg, HI)
   endif
 
 end subroutine chksum_pair_h_3d
@@ -252,46 +241,44 @@ end subroutine chksum_h_2d
 
 ! =====================================================================
 
-subroutine chksum_pair_B_2d(arrayA, mesgA, arrayB, mesgB, HI, symmetric, haloshift)
+subroutine chksum_pair_B_2d(mesg, arrayA, arrayB, HI, symmetric, haloshift)
+  character(len=*),                 intent(in) :: mesg   !< Identifying messages
   type(hor_index_type),             intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
-  character(len=*),                 intent(in) :: mesgA, mesgB !< Identifying messages
   logical,                optional, intent(in) :: symmetric !< If true, do the checksums on the full symmetric computational domain.
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
   logical :: sym
+  integer :: ret
 
+  ret = 0
   if (transform_test_started()) then
     call transform_compare(arrayA, arrayB, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_B_2d '//trim(mesgA))
+                        'Transfrom test fail in chksum_pair_B_2d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
+
   sym = .false. ; if (present(symmetric)) sym = symmetric
 
   if (present(haloshift)) then
-    call chksum_B_2d(arrayA, mesgA, HI, haloshift, &
-                     symmetric=sym, compare=.false.)
-    call chksum_B_2d(arrayB, mesgB, HI, haloshift, &
-                     symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayA, 'x '//mesg, HI, haloshift, symmetric=sym)
+    call chksum_B_2d(arrayB, 'y '//mesg, HI, haloshift, symmetric=sym)
   else
-    call chksum_B_2d(arrayA, mesgA, HI, &
-                     symmetric=sym, compare=.false.)
-    call chksum_B_2d(arrayB, mesgB, HI, &
-                     symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayA, 'x '//mesg, HI, symmetric=sym)
+    call chksum_B_2d(arrayB, 'y '//mesg, HI, symmetric=sym)
   endif
 
 end subroutine chksum_pair_B_2d
 
-subroutine chksum_pair_B_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
+subroutine chksum_pair_B_3d(mesg, arrayA, arrayB, HI, haloshift)
+  character(len=*),                    intent(in) :: mesg !< Identifying messages
   type(hor_index_type),                intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
-  character(len=*),                    intent(in) :: mesgA, mesgB !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
@@ -301,18 +288,18 @@ subroutine chksum_pair_B_3d(arrayA, mesgA, arrayB, mesgB, HI, haloshift)
     call transform_compare(arrayA, arrayB, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_B_3d '//trim(mesgA))
+                        'Transfrom test fail in chksum_pair_B_3d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
   if (present(haloshift)) then
-    call chksum_B_3d(arrayA, mesgA, HI, haloshift, compare=.false.)
-    call chksum_B_3d(arrayB, mesgB, HI, haloshift, compare=.false.)
+    call chksum_B_3d(arrayA, 'x '//mesg, HI, haloshift)
+    call chksum_B_3d(arrayB, 'y '//mesg, HI, haloshift)
   else
-    call chksum_B_3d(arrayA, mesgA, HI, compare=.false.)
-    call chksum_B_3d(arrayB, mesgB, HI, compare=.false.)
+    call chksum_B_3d(arrayA, 'x '//mesg, HI)
+    call chksum_B_3d(arrayB, 'y '//mesg, HI)
   endif
 
 end subroutine chksum_pair_B_3d
@@ -369,6 +356,7 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric, compare)
     write(0,*) 'chksum_B_2d: jsd,jsc,jec,jed=',HI%jsdB,HI%jscB,HI%jecB,HI%jedB
     call chksum_error(FATAL,'Error in chksum_B_2d '//trim(mesg))
   endif
+
 
   sym = .false. ; if (present(symmetric)) sym = symmetric
 
@@ -435,10 +423,10 @@ end subroutine chksum_B_2d
 
 ! =====================================================================
 
-subroutine chksum_pair_uv_2d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
+subroutine chksum_uv_2d(mesg, arrayU, arrayV, HI, haloshift)
+  character(len=*),                 intent(in) :: mesg !< Identifying messages
   type(hor_index_type),             intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayU, arrayV !< The arrays to be checksummed
-  character(len=*),                 intent(in) :: mesgU, mesgV !< Identifying messages
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
@@ -448,26 +436,27 @@ subroutine chksum_pair_uv_2d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
     call transform_compare(arrayU, arrayV, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_uv_2d '//trim(mesgU))
+                        'Transfrom test fail in chksum_uv_2d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
+
   if (present(haloshift)) then
-    call chksum_u_2d(arrayU, mesgU, HI, haloshift)
-    call chksum_v_2d(arrayV, mesgV, HI, haloshift)
+    call chksum_u_2d(arrayU, 'u '//mesg, HI, haloshift)
+    call chksum_v_2d(arrayV, 'v '//mesg, HI, haloshift)
   else
-    call chksum_u_2d(arrayU, mesgU, HI)
-    call chksum_v_2d(arrayV, mesgV, HI)
+    call chksum_u_2d(arrayU, 'u '//mesg, HI)
+    call chksum_v_2d(arrayV, 'v '//mesg, HI)
   endif
 
-end subroutine chksum_pair_uv_2d
+end subroutine chksum_uv_2d
 
-subroutine chksum_pair_uv_3d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
+subroutine chksum_uv_3d(mesg, arrayU, arrayV, HI, haloshift)
+  character(len=*),                    intent(in) :: mesg !< Identifying messages
   type(hor_index_type),                intent(in) :: HI     !< A horizontal index type
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayU, arrayV !< The arrays to be checksummed
-  character(len=*),                    intent(in) :: mesgU, mesgV !< Identifying messages
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   integer :: ret
@@ -476,21 +465,21 @@ subroutine chksum_pair_uv_3d(arrayU, mesgU, arrayV, mesgV, HI, haloshift)
     call transform_compare(arrayU, arrayV, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
-                        'Transfrom test fail in chksum_pair_uv_3d '//trim(mesgU))
+                        'Transfrom test fail in chksum_uv_3d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
   endif
 
   if (present(haloshift)) then
-    call chksum_u_3d(arrayU, mesgU, HI, haloshift)
-    call chksum_v_3d(arrayV, mesgV, HI, haloshift)
+    call chksum_u_3d(arrayU, 'u '//mesg, HI, haloshift)
+    call chksum_v_3d(arrayV, 'v '//mesg, HI, haloshift)
   else
-    call chksum_u_3d(arrayU, mesgU, HI)
-    call chksum_v_3d(arrayV, mesgV, HI)
+    call chksum_u_3d(arrayU, 'u '//mesg, HI)
+    call chksum_v_3d(arrayV, 'v '//mesg, HI)
   endif
 
-end subroutine chksum_pair_uv_3d
+end subroutine chksum_uv_3d
 
 !> chksum_u_2d performs checksums on a 2d array staggered at C-grid u points.
 subroutine chksum_u_2d(array, mesg, HI, haloshift)
