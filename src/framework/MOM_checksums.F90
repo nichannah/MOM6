@@ -96,11 +96,11 @@ subroutine chksum_pair_h_2d(mesg, arrayA, arrayB, HI, haloshift)
   endif
 
   if (present(haloshift)) then
-    call chksum_h_2d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_h_2d(arrayB, 'y '//mesg, HI, haloshift)
+    call chksum_h_2d(arrayA, 'x '//mesg, HI, haloshift, compare=.false.)
+    call chksum_h_2d(arrayB, 'y '//mesg, HI, haloshift, compare=.false.)
   else
-    call chksum_h_2d(arrayA, 'x '//mesg, HI)
-    call chksum_h_2d(arrayB, 'y '//mesg, HI)
+    call chksum_h_2d(arrayA, 'x '//mesg, HI, compare=.false.)
+    call chksum_h_2d(arrayB, 'y '//mesg, HI, compare=.false.)
   endif
 
 end subroutine chksum_pair_h_2d
@@ -124,11 +124,11 @@ subroutine chksum_pair_h_3d(mesg, arrayA, arrayB, HI, haloshift)
   endif
 
   if (present(haloshift)) then
-    call chksum_h_3d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_h_3d(arrayB, 'y '//mesg, HI, haloshift)
+    call chksum_h_3d(arrayA, 'x '//mesg, HI, haloshift, compare=.false.)
+    call chksum_h_3d(arrayB, 'y '//mesg, HI, haloshift, compare=.false.)
   else
-    call chksum_h_3d(arrayA, 'x '//mesg, HI)
-    call chksum_h_3d(arrayB, 'y '//mesg, HI)
+    call chksum_h_3d(arrayA, 'x '//mesg, HI, compare=.false.)
+    call chksum_h_3d(arrayB, 'y '//mesg, HI, compare=.false.)
   endif
 
 end subroutine chksum_pair_h_3d
@@ -266,11 +266,11 @@ subroutine chksum_pair_B_2d(mesg, arrayA, arrayB, HI, symmetric, haloshift)
   sym = .false. ; if (present(symmetric)) sym = symmetric
 
   if (present(haloshift)) then
-    call chksum_B_2d(arrayA, 'x '//mesg, HI, haloshift, symmetric=sym)
-    call chksum_B_2d(arrayB, 'y '//mesg, HI, haloshift, symmetric=sym)
+    call chksum_B_2d(arrayA, 'x '//mesg, HI, haloshift, symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayB, 'y '//mesg, HI, haloshift, symmetric=sym, compare=.false.)
   else
-    call chksum_B_2d(arrayA, 'x '//mesg, HI, symmetric=sym)
-    call chksum_B_2d(arrayB, 'y '//mesg, HI, symmetric=sym)
+    call chksum_B_2d(arrayA, 'x '//mesg, HI, symmetric=sym, compare=.false.)
+    call chksum_B_2d(arrayB, 'y '//mesg, HI, symmetric=sym, compare=.false.)
   endif
 
 end subroutine chksum_pair_B_2d
@@ -295,11 +295,11 @@ subroutine chksum_pair_B_3d(mesg, arrayA, arrayB, HI, haloshift)
   endif
 
   if (present(haloshift)) then
-    call chksum_B_3d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_B_3d(arrayB, 'y '//mesg, HI, haloshift)
+    call chksum_B_3d(arrayA, 'x '//mesg, HI, haloshift, compare=.false.)
+    call chksum_B_3d(arrayB, 'y '//mesg, HI, haloshift, compare=.false.)
   else
-    call chksum_B_3d(arrayA, 'x '//mesg, HI)
-    call chksum_B_3d(arrayB, 'y '//mesg, HI)
+    call chksum_B_3d(arrayA, 'x '//mesg, HI, compare=.false.)
+    call chksum_B_3d(arrayB, 'y '//mesg, HI, compare=.false.)
   endif
 
 end subroutine chksum_pair_B_3d
