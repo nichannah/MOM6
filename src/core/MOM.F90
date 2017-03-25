@@ -24,9 +24,7 @@ use MOM_variables, only: thermo_var_ptrs
 
 ! Infrastructure modules
 use MOM_checksums,            only : MOM_checksums_init, hchksum, uvchksum
-use MOM_transform_test,       only : MOM_transform_test_init
-use MOM_transform_test,       only : do_transform_test, do_transform_on_this_pe
-use MOM_transform_test,       only : transform_allocatable, transform_allocatable_and_swap
+use MOM_transform_test,       only : MOM_transform_test_init, do_transform_on_this_pe
 use MOM_checksum_packages,    only : MOM_thermo_chksum, MOM_state_chksum, MOM_accel_chksum
 use MOM_cpu_clock,            only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
 use MOM_cpu_clock,            only : CLOCK_COMPONENT, CLOCK_SUBCOMPONENT
@@ -126,7 +124,6 @@ use MOM_tracer_registry,       only : add_tracer_diagnostics, tracer_registry_ty
 use MOM_tracer_registry,       only : lock_tracer_registry, tracer_registry_end
 use MOM_tracer_flow_control,   only : call_tracer_register, tracer_flow_control_CS
 use MOM_tracer_flow_control,   only : tracer_flow_control_init, call_tracer_surface_state
-use MOM_tracer_flow_control,   only : transform_tracers
 use MOM_transcribe_grid,       only : copy_dyngrid_to_MOM_grid, copy_MOM_grid_to_dyngrid
 use MOM_vert_friction,         only : vertvisc, vertvisc_remnant
 use MOM_vert_friction,         only : vertvisc_limit_vel, vertvisc_init
@@ -514,7 +511,6 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
   logical :: showCallTree
   logical :: do_pass_kd_kv_turb ! This is used for a group halo pass.
   logical :: use_ice_shelf ! Needed for ALE
-
   G => CS%G ; GV => CS%GV
   is   = G%isc  ; ie   = G%iec  ; js   = G%jsc  ; je   = G%jec ; nz = G%ke
   Isq  = G%IscB ; Ieq  = G%IecB ; Jsq  = G%JscB ; Jeq  = G%JecB
@@ -660,7 +656,6 @@ subroutine step_MOM(fluxes, state, Time_start, time_interval, CS)
     call check_redundant("Before steps ", fluxes%taux, fluxes%tauy, G)
   endif
   call cpu_clock_end(id_clock_other)
-
 
   do n=1,n_max
 
@@ -1642,6 +1637,7 @@ subroutine step_tracers(fluxes, state, Time_start, time_interval, CS)
       call cpu_clock_end(id_clock_ALE)
       call pass_var(CS%h,G%Domain)
 
+
     endif
 
   else ! NON-ALE MODE...NOT WELL TESTED
@@ -2062,6 +2058,7 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
                     fail_if_missing=.true.)
   endif
 
+
   call callTree_waypoint("MOM parameters read (initialize_MOM)")
 
   call MOM_transform_test_init(param_file)
@@ -2092,7 +2089,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call create_dyn_horgrid(dG, HI, bathymetry_at_vel=bathy_at_vel)
   call clone_MOM_domain(G%Domain, dG%Domain)
 
-
   call verticalGridInit( param_file, CS%GV )
   GV => CS%GV
 !  dG%g_Earth = GV%g_Earth
@@ -2102,6 +2098,7 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     call clone_MOM_domain(dG%Domain, dG%Domain_aux, symmetric=.false.)
 
   call callTree_waypoint("grids initialized (initialize_MOM)")
+
 
   call MOM_timing_init(CS)
 
@@ -2213,6 +2210,7 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   ! Additional calls can be added to MOM_tracer_flow_control.F90.
   call call_tracer_register(dG%HI, GV, param_file, CS%tracer_flow_CSp, &
                             CS%tracer_Reg, CS%restart_CSp)
+
   call MEKE_alloc_register_restart(dG%HI, param_file, CS%MEKE, CS%restart_CSp)
   call set_visc_register_restarts(dG%HI, GV, param_file, CS%visc, CS%restart_CSp)
   call mixedlayer_restrat_register_restarts(dG%HI, param_file, CS%mixedlayer_restrat_CSp, CS%restart_CSp)
@@ -2310,13 +2308,12 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
 
   call cpu_clock_begin(id_clock_pass_init)
   !--- set up group pass for u,v,T,S and h. pass_uv_T_S_h also is used in step_MOM
-
   call create_group_pass(CS%pass_uv_T_S_h, CS%u, CS%v, G%Domain)
-  call create_group_pass(CS%pass_uv_T_S_h, CS%h, G%Domain)
   if (CS%use_temperature) then
     call create_group_pass(CS%pass_uv_T_S_h, CS%tv%T, G%Domain)
     call create_group_pass(CS%pass_uv_T_S_h, CS%tv%S, G%Domain)
   endif
+  call create_group_pass(CS%pass_uv_T_S_h, CS%h, G%Domain)
   call cpu_clock_end(id_clock_pass_init)
 
   if (ALE_remap_init_conds(CS%ALE_CSp) .and. .not. query_initialized(CS%h,"h",CS%restart_CSp)) then
@@ -2324,7 +2321,8 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     ! \todo This block exists for legacy reasons and we should phase it out of
     ! all examples.
     if (CS%debug) then
-      call uvchksum("Pre ALE adjust init cond [uv]", CS%u, CS%v, G%HI, haloshift=1)
+      call uvchksum("Pre ALE adjust init cond [uv]", &
+                    CS%u, CS%v, G%HI, haloshift=1)
       call hchksum(CS%h*GV%H_to_m,"Pre ALE adjust init cond h", G%HI, haloshift=1)
     endif
     call callTree_waypoint("Calling adjustGridForIntegrity() to remap initial conditions (initialize_MOM)")
@@ -2478,6 +2476,8 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
     call ALE_register_diags(Time, G, diag, CS%tv%C_p, CS%tracer_Reg, CS%ALE_CSp)
   endif
 
+
+
   ! If need a diagnostic field, then would have been allocated in register_diags.
   if (CS%use_temperature) then
     if(CS%advect_TS) then
@@ -2562,39 +2562,6 @@ subroutine initialize_MOM(Time, param_file, dirs, CS, Time_in, offline_tracer_mo
   call cpu_clock_end(id_clock_init)
 
 end subroutine initialize_MOM
-
-subroutine transform_state(CS)
-  type(MOM_control_struct),  pointer       :: CS          !< pointer set in this routine to MOM control structure
-
-  call transform_allocatable_and_swap(CS%u, CS%v)
-  call transform_allocatable(CS%h)
-
-  if (CS%use_temperature) then
-    call transform_allocatable(CS%T)
-    call transform_allocatable(CS%S)
-  endif
-
-end subroutine transform_state
-
-subroutine transform_reset_pointers(CS)
-  type(MOM_control_struct),  pointer       :: CS          !< pointer set in this routine to MOM control structure
-
-  integer i
-
-  if (CS%use_temperature) then
-    CS%tv%T => CS%T
-    CS%tv%S => CS%S
-
-    do i=1,CS%tracer_Reg%ntr
-      if (CS%tracer_Reg%Tr(i)%vd%name == 'T') then
-        CS%tracer_Reg%Tr(i)%t => CS%tv%T
-      elseif (CS%tracer_Reg%Tr(i)%vd%name == 'S') then
-        CS%tracer_Reg%Tr(i)%t => CS%tv%S
-      endif
-    enddo
-  endif
-
-end subroutine transform_reset_pointers
 
 !> This subroutine finishes initializing MOM and writes out the initial conditions.
 subroutine finish_MOM_initialization(Time, dirs, CS, fluxes)

@@ -46,7 +46,7 @@ use MOM_cpu_clock,           only : CLOCK_MODULE_DRIVER, CLOCK_MODULE, CLOCK_ROU
 use MOM_diag_mediator,       only : diag_ctrl, time_type
 use MOM_diag_mediator,       only : safe_alloc_ptr, post_data, register_diag_field
 use MOM_diag_to_Z,           only : diag_to_Z_CS, register_Zint_diag, calc_Zint_diags
-use MOM_checksums,           only : hchksum, uvchksum
+use MOM_checksums,           only : hchksum, uvchksum, hchksum_pair
 use MOM_transform_test,      only : do_transform_on_this_pe, transform
 use MOM_EOS,                 only : calculate_density, calculate_density_derivs
 use MOM_error_handler,       only : MOM_error, is_root_pe, FATAL, WARNING, NOTE
@@ -570,8 +570,7 @@ subroutine set_diffusivity(u, v, h, u_h, v_h, tv, fluxes, optics, visc, dt, &
 
   if (CS%useKappaShear) then
     if (CS%debug) then
-      call hchksum(u_h, "before calc_KS u_h",G%HI)
-      call hchksum(v_h, "before calc_KS v_h",G%HI)
+      call hchksum_pair("before calc_KS [uv]_h", u_h, v_h, G%HI)
     endif
     call cpu_clock_begin(id_clock_kappaShear)
     ! Changes: visc%Kd_turb, visc%TKE_turb (not clear that TKE_turb is used as input ????)
@@ -3021,7 +3020,7 @@ subroutine set_diffusivity_init(Time, G, GV, param_file, diag, CS, diag_to_Z_CSp
                    filename)
     call safe_alloc_ptr(CS%TKE_Niku,is,ie,js,je); CS%TKE_Niku(:,:) = 0.0
     call read_data(filename, 'TKE_input', CS%TKE_Niku, &
-                 domain=G%domain%mpp_domain, timelevel=1) ! ??? timelevel -aja
+                   domain=G%domain%mpp_domain, timelevel=1) ! ??? timelevel -aja
 
     CS%TKE_Niku(:,:) = Niku_scale * CS%TKE_Niku(:,:)
 

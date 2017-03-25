@@ -125,15 +125,15 @@ type, public :: ocean_grid_type
     areaBu, &    !< areaBu is the area of a q-cell, in m2
     IareaBu      !< IareaBu = 1/areaBu in m-2.
 
-  real ALLOCABLE_, dimension(:) :: &
-    gridLatT, & !< The latitude of T points for the purpose of labeling the output axes.
+  real, pointer, dimension(:) :: &
+    gridLatT => NULL(), & !< The latitude of T points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLatT.
-    gridLatB    !< The latitude of B points for the purpose of labeling the output axes.
+    gridLatB => NULL()    !< The latitude of B points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLatBu.
-  real ALLOCABLE_, dimension(:) :: &
-    gridLonT, & !< The longitude of T points for the purpose of labeling the output axes.
+  real, pointer, dimension(:) :: &
+    gridLonT => NULL(), & !< The longitude of T points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLonT.
-    gridLonB    !< The longitude of B points for the purpose of labeling the output axes.
+    gridLonB => NULL()    !< The longitude of B points for the purpose of labeling the output axes.
                           !! On many grids this is the same as geoLonBu.
   character(len=40) :: &
     x_axis_units, &     !< The units that are used in labeling the x coordinate axes.
@@ -354,6 +354,7 @@ subroutine MOM_grid_init(G, param_file, HI, global_indexing, bathymetry_at_vel)
 
 end subroutine MOM_grid_init
 
+
 !> set_derived_metrics calculates metric terms that are derived from other metrics.
 subroutine set_derived_metrics(G)
   type(ocean_grid_type), intent(inout) :: G    !< The horizontal grid structure
@@ -520,23 +521,12 @@ subroutine allocate_metrics(G)
   ALLOC_(G%sin_rot(isd:ied,jsd:jed)) ; G%sin_rot(:,:) = 0.0
   ALLOC_(G%cos_rot(isd:ied,jsd:jed)) ; G%cos_rot(:,:) = 1.0
 
-  ALLOC_(G%gridLonT(isg:ieg))   ; G%gridLonT(:) = 0.0
-  ALLOC_(G%gridLonB(G%IsgB:G%IegB)) ; G%gridLonB(:) = 0.0
-  ALLOC_(G%gridLatT(jsg:jeg))   ; G%gridLatT(:) = 0.0
-  ALLOC_(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
+  allocate(G%gridLonT(isg:ieg))   ; G%gridLonT(:) = 0.0
+  allocate(G%gridLonB(G%IsgB:G%IegB)) ; G%gridLonB(:) = 0.0
+  allocate(G%gridLatT(jsg:jeg))   ; G%gridLatT(:) = 0.0
+  allocate(G%gridLatB(G%JsgB:G%JegB)) ; G%gridLatB(:) = 0.0
 
 end subroutine allocate_metrics
-
-subroutine swap_int(a, b)
-  integer, intent(inout) :: a, b
-
-  integer tmp
-
-  tmp = a
-  a = b
-  b = tmp
-
-end subroutine
 
 !> grid_metrics_chksum performs a set of checksums on metrics on the grid for
 !!   debugging.

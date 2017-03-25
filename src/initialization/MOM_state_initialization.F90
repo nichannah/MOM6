@@ -265,11 +265,6 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
               "Unrecognized layer thickness configuration "//trim(config))
       end select
 
-      if (debug) then
-        call hchksum(G%bathyT, "MOM_initialize_state: bathyT ", G%HI, haloshift=1)
-        call hchksum(h*GV%H_to_m, "MOM_initialize_state: h ", G%HI, haloshift=1)
-      endif
-
       call pass_var(h, G%Domain)
 
 !     Initialize temperature and salinity (T and S).
@@ -356,6 +351,8 @@ subroutine MOM_initialize_state(u, v, h, tv, Time, G, GV, PF, dirs, &
     call pass_vector(u, v, G%Domain)
     if (debug) then
       call uvchksum("MOM_initialize_state [uv]", u, v, G%HI, haloshift=1)
+      call hchksum(G%bathyT, "MOM_initialize_state: bathyT ", G%HI, haloshift=1)
+      call hchksum(h*GV%H_to_m, "MOM_initialize_state: h ", G%HI, haloshift=1)
     endif
 
 !   Optionally convert the thicknesses from m to kg m-2.  This is particularly
@@ -680,8 +677,6 @@ subroutine initialize_thickness_uniform(h, G, GV, param_file)
   do k=1,nz
     e0(K) = -G%max_depth * real(k-1) / real(nz)
   enddo
-
-  print*, 'is, ie, js, je, nz, G%max_depth', is, ie, js, je, nz, G%max_depth
 
   do j=js,je ; do i=is,ie
 !    This sets the initial thickness (in m) of the layers.  The      !
@@ -1662,7 +1657,7 @@ subroutine MOM_temp_salt_initialize_from_Z(h, tv, G, GV, PF, dirs)
   real, parameter    :: missing_value = -1.e20
   real, parameter    :: temp_land_fill = 0.0, salt_land_fill = 35.0
   logical :: reentrant_x, tripolar_n,dbg
-  logical :: debug = .false.  ! manually set this to true for verbose output
+  logical :: debug = .false.
 
 
   !data arrays
@@ -1775,21 +1770,21 @@ subroutine MOM_temp_salt_initialize_from_Z(h, tv, G, GV, PF, dirs)
   if (do_transform_on_this_pe()) then
     call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
          G%self_untrans, temp_z, mask_z, z_in, z_edges_in, &
-         missing_value_temp, reentrant_x, tripolar_n, homogenize, debug)
+         missing_value_temp, reentrant_x, tripolar_n, homogenize)
 
     call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
          G%self_untrans, salt_z, mask_z, z_in, z_edges_in, &
-         missing_value_salt, reentrant_x, tripolar_n, homogenize, debug)
+         missing_value_salt, reentrant_x, tripolar_n, homogenize)
 
     call transform_allocatable(temp_z)
     call transform_allocatable(salt_z)
     call transform_allocatable(mask_z)
   else
     call horiz_interp_and_extrap_tracer(filename, potemp_var,1.0,1, &
-         G, temp_z, mask_z, z_in, z_edges_in, missing_value_temp, reentrant_x, tripolar_n, homogenize, debug)
+         G, temp_z, mask_z, z_in, z_edges_in, missing_value_temp, reentrant_x, tripolar_n, homogenize)
 
     call horiz_interp_and_extrap_tracer(filename, salin_var,1.0,1, &
-         G, salt_z, mask_z, z_in, z_edges_in, missing_value_salt, reentrant_x, tripolar_n, homogenize, debug)
+         G, salt_z, mask_z, z_in, z_edges_in, missing_value_salt, reentrant_x, tripolar_n, homogenize)
   endif
 
   if (debug) then

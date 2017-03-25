@@ -90,7 +90,7 @@ type p3d
   real, dimension(:,:,:), pointer :: p => NULL()
 end type p3d
 
-type, public :: advection_test_tracer_CS
+type, public :: advection_test_tracer_CS ; private
   integer :: ntr = NTR                     ! Number of tracers in this module
   logical :: coupled_tracers = .false.  ! These tracers are not offered to the
                                         ! coupler.
@@ -98,9 +98,9 @@ type, public :: advection_test_tracer_CS
                                    ! to initialize internally.
   type(time_type), pointer :: Time ! A pointer to the ocean model's clock.
   type(tracer_registry_type), pointer :: tr_Reg => NULL()
-  real, allocatable :: tr(:,:,:,:)  ! The array of tracers used in this
+  real, pointer :: tr(:,:,:,:) => NULL()   ! The array of tracers used in this
                                            ! subroutine, in g m-3?
-  real, allocatable :: tr_aux(:,:,:,:) ! The masked tracer concentration
+  real, pointer :: tr_aux(:,:,:,:) => NULL() ! The masked tracer concentration
                                              ! for output, in g m-3.
   type(p3d), dimension(NTR) :: &
     tr_adx, &! Tracer zonal advective fluxes in g m-3 m3 s-1.
@@ -535,8 +535,8 @@ subroutine advection_test_tracer_end(CS)
   integer :: m
 
   if (associated(CS)) then
-    if (allocated(CS%tr)) deallocate(CS%tr)
-    if (allocated(CS%tr_aux)) deallocate(CS%tr_aux)
+    if (associated(CS%tr)) deallocate(CS%tr)
+    if (associated(CS%tr_aux)) deallocate(CS%tr_aux)
     do m=1,NTR
       if (associated(CS%tr_adx(m)%p)) deallocate(CS%tr_adx(m)%p)
       if (associated(CS%tr_ady(m)%p)) deallocate(CS%tr_ady(m)%p)

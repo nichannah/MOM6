@@ -318,7 +318,7 @@ subroutine opacity_from_chl(optics, fluxes, G, CS, chl_in)
     ! Only the 2-d surface chlorophyll can be read in from a file.  The
     ! same value is assumed for all layers.
     call get_time(CS%Time,seconds,days)
-    call time_interp_external(CS%sbc_chl, CS%Time, chl_data)
+    !call time_interp_external(CS%sbc_chl, CS%Time, chl_data)
     do j=js,je ; do i=is,ie
       if ((G%mask2dT(i,j) > 0.5) .and. (chl_data(i,j) < 0.0)) then
         write(mesg,'(" Time_interp negative chl of ",(1pe12.4)," at i,j = ",&

@@ -344,7 +344,7 @@ subroutine thickness_diffuse(h, uhtr, vhtr, tv, dt, G, GV, MEKE, VarMix, CDp, CS
 
   if (CS%debug) then
     call uvchksum("thickness_diffuse [uv]hD", uhD(:,:,:)*H_to_m, &
-                  vhD(:,:,:)*H_to_m, G%HI,haloshift=0)
+                  vhD(:,:,:)*H_to_m, G%HI, haloshift=0)
     call uvchksum("thickness_diffuse [uv]htr", uhtr(:,:,:)*H_to_m, &
                   vhtr(:,:,:)*H_to_m, G%HI,haloshift=0)
     call hchksum(h(:,:,:)*H_to_m,"thickness_diffuse h",G%HI,haloshift=0)

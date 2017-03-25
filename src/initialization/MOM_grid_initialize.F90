@@ -68,7 +68,6 @@ module MOM_grid_initialize
 
 use MOM_checksums, only : hchksum, Bchksum
 use MOM_checksums, only : hchksum_pair, uvchksum, Bchksum_pair
-use MOM_transform_test, only : do_transform_on_this_pe, transform, transform_and_swap
 use MOM_domains, only : pass_var, pass_vector, pe_here, root_PE, broadcast
 use MOM_domains, only : AGRID, BGRID_NE, CGRID_NE, To_All, Scalar_Pair
 use MOM_domains, only : To_North, To_South, To_East, To_West
@@ -696,22 +695,6 @@ subroutine set_grid_metrics_spherical(G, param_file)
   enddo
 
   dL_di = (G%len_lon * 4.0*atan(1.0)) / (180.0 * G%Domain%niglobal)
-  do j=jsd,jed ; do i=isd,ied
-    G%geoLonT(i,j) = grid_LonT(i)
-    G%geoLatT(i,j) = grid_LatT(j)
-
-! The following line is needed to reproduce the solution from
-! set_grid_metrics_mercator when used to generate a simple spherical grid.
-    G%dxT(i,j) = G%Rad_Earth * COS( G%geoLatT(i,j)*PI_180 ) * dL_di
-!   G%dxT(i,j) = G%Rad_Earth * dLon*PI_180 * COS( latitude )
-    G%dyT(i,j) = G%Rad_Earth * dLat*PI_180
-
-!   latitude = G%geoLatCv(i,J)*PI_180             ! In radians
-!   dL_di    = G%geoLatCv(i,max(jsd,J-1))*PI_180  ! In radians
-!   G%areaT(i,j) = Rad_Earth**2*dLon*dLat*ABS(SIN(latitude)-SIN(dL_di))
-    G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
-  enddo; enddo
-
   do J=JsdB,JedB ; do I=IsdB,IedB
     G%geoLonBu(I,J) = grid_lonB(I)
     G%geoLatBu(I,J) = grid_latB(J)
@@ -746,22 +729,21 @@ subroutine set_grid_metrics_spherical(G, param_file)
     G%dyCu(I,j) = G%Rad_Earth * dLat*PI_180
   enddo; enddo
 
-  !if (do_transform_on_this_pe()) then
-  !  call transform(G%geoLonT, G%geoLonT)
-  !  call transform(G%geoLatT, G%geoLatT)
-  !  call transform(G%areaT, G%areaT)
-  !  call transform(G%dxT, G%dyT)
-!
-!    call transform(G%geoLonBu, G%geoLonBu)
-!    call transform(G%geoLatBu, G%geoLatBu)
-!    call transform(G%areaBu, G%areaBu)
-!    call transform(G%dxBu, G%dyBu)
-!
-!    call transform(G%geoLonCu, G%geoLonCv)
-!    call transform(G%geoLatCu, G%geoLatCv)
-!    call transform(G%dxCu, G%dyCv)
-!    call transform(G%dxCv, G%dyCu)
-!  endif
+  do j=jsd,jed ; do i=isd,ied
+    G%geoLonT(i,j) = grid_LonT(i)
+    G%geoLatT(i,j) = grid_LatT(j)
+
+! The following line is needed to reproduce the solution from
+! set_grid_metrics_mercator when used to generate a simple spherical grid.
+    G%dxT(i,j) = G%Rad_Earth * COS( G%geoLatT(i,j)*PI_180 ) * dL_di
+!   G%dxT(i,j) = G%Rad_Earth * dLon*PI_180 * COS( latitude )
+    G%dyT(i,j) = G%Rad_Earth * dLat*PI_180
+
+!   latitude = G%geoLatCv(i,J)*PI_180             ! In radians
+!   dL_di    = G%geoLatCv(i,max(jsd,J-1))*PI_180  ! In radians
+!   G%areaT(i,j) = Rad_Earth**2*dLon*dLat*ABS(SIN(latitude)-SIN(dL_di))
+    G%areaT(i,j) = G%dxT(i,j) * G%dyT(i,j)
+  enddo; enddo
 
   call callTree_leave("set_grid_metrics_spherical()")
 end subroutine set_grid_metrics_spherical

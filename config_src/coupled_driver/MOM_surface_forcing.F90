@@ -46,7 +46,7 @@ module MOM_surface_forcing
 !### use MOM_controlled_forcing, only : apply_ctrl_forcing, register_ctrl_forcing_restarts
 !### use MOM_controlled_forcing, only : controlled_forcing_init, controlled_forcing_end
 !### use MOM_controlled_forcing, only : ctrl_forcing_CS
-use MOM_transform_test,   only : do_transform_on_this_pe, transform
+use MOM_transform_test,   only : transform_pointer, undo_transform_pointer, swap_pointer
 use MOM_coms,             only : reproducing_sum
 use MOM_constants,        only : hlv, hlf
 use MOM_cpu_clock,        only : cpu_clock_id, cpu_clock_begin, cpu_clock_end
@@ -85,7 +85,8 @@ public convert_IOB_to_fluxes
 public surface_forcing_init
 public ice_ocn_bnd_type_chksum
 public forcing_save_restart
-
+public transform_ice_ocean_boundary, undo_transform_ice_ocean_boundary
+public transform_surface_forcing
 
 ! surface_forcing_CS is a structure containing pointers to the forcing fields
 ! which may be used to drive MOM.  All fluxes are positive downward.
@@ -119,7 +120,7 @@ type, public :: surface_forcing_CS ; private
   real :: gust_const            ! constant unresolved background gustiness for ustar (Pa)
   logical :: read_gust_2d       ! If true, use a 2-dimensional gustiness supplied
                                 ! from an input file.
-  real, pointer, dimension(:,:) :: &
+  real, pointer, contiguous, dimension(:,:) :: &
     TKE_tidal => NULL(), &      ! turbulent kinetic energy introduced to the
                                 ! bottom boundary layer by drag on the tidal flows,
                                 ! in W m-2.
@@ -181,28 +182,29 @@ end type surface_forcing_CS
 ! the elements, units, and conventions that exactly conform to the use for
 ! MOM-based coupled models.
 type, public :: ice_ocean_boundary_type
-  real, pointer, dimension(:,:) :: u_flux               =>NULL() ! i-direction wind stress (Pa)
-  real, pointer, dimension(:,:) :: v_flux               =>NULL() ! j-direction wind stress (Pa)
-  real, pointer, dimension(:,:) :: t_flux               =>NULL() ! sensible heat flux (W/m2)
-  real, pointer, dimension(:,:) :: q_flux               =>NULL() ! specific humidity flux (kg/m2/s)
-  real, pointer, dimension(:,:) :: salt_flux            =>NULL() ! salt flux (kg/m2/s)
-  real, pointer, dimension(:,:) :: lw_flux              =>NULL() ! long wave radiation (W/m2)
-  real, pointer, dimension(:,:) :: sw_flux_vis_dir      =>NULL() ! direct visible sw radiation (W/m2)
-  real, pointer, dimension(:,:) :: sw_flux_vis_dif      =>NULL() ! diffuse visible sw radiation (W/m2)
-  real, pointer, dimension(:,:) :: sw_flux_nir_dir      =>NULL() ! direct Near InfraRed sw radiation (W/m2)
-  real, pointer, dimension(:,:) :: sw_flux_nir_dif      =>NULL() ! diffuse Near InfraRed sw radiation (W/m2)
-  real, pointer, dimension(:,:) :: lprec                =>NULL() ! mass flux of liquid precip (kg/m2/s)
-  real, pointer, dimension(:,:) :: fprec                =>NULL() ! mass flux of frozen precip (kg/m2/s)
-  real, pointer, dimension(:,:) :: runoff               =>NULL() ! mass flux of liquid runoff (kg/m2/s)
-  real, pointer, dimension(:,:) :: calving              =>NULL() ! mass flux of frozen runoff (kg/m2/s)
-  real, pointer, dimension(:,:) :: ustar_berg           =>NULL() ! frictional velocity beneath icebergs (m/s)
-  real, pointer, dimension(:,:) :: area_berg            =>NULL() ! area covered by icebergs(m2/m2)
-  real, pointer, dimension(:,:) :: mass_berg            =>NULL() ! mass of icebergs(kg/m2)
-  real, pointer, dimension(:,:) :: runoff_hflx          =>NULL() ! heat content of liquid runoff (W/m2)
-  real, pointer, dimension(:,:) :: calving_hflx         =>NULL() ! heat content of frozen runoff (W/m2)
-  real, pointer, dimension(:,:) :: p                    =>NULL() ! pressure of overlying ice and atmosphere
-                                                                 ! on ocean surface (Pa)
-  real, pointer, dimension(:,:) :: mi                   =>NULL() ! mass of ice (kg/m2)
+  real, pointer, contiguous, dimension(:,:) :: &
+  u_flux          =>NULL(), & ! i-direction wind stress (Pa)
+  v_flux          =>NULL(), & ! j-direction wind stress (Pa)
+  t_flux          =>NULL(), & ! sensible heat flux (W/m2)
+  q_flux          =>NULL(), & ! specific humidity flux (kg/m2/s)
+  salt_flux       =>NULL(), & ! salt flux (kg/m2/s)
+  lw_flux         =>NULL(), & ! long wave radiation (W/m2)
+  sw_flux_vis_dir =>NULL(), & ! direct visible sw radiation (W/m2)
+  sw_flux_vis_dif =>NULL(), & ! diffuse visible sw radiation (W/m2)
+  sw_flux_nir_dir =>NULL(), & ! direct Near InfraRed sw radiation (W/m2)
+  sw_flux_nir_dif =>NULL(), & ! diffuse Near InfraRed sw radiation (W/m2)
+  lprec           =>NULL(), & ! mass flux of liquid precip (kg/m2/s)
+  fprec           =>NULL(), & ! mass flux of frozen precip (kg/m2/s)
+  runoff          =>NULL(), & ! mass flux of liquid runoff (kg/m2/s)
+  calving         =>NULL(), & ! mass flux of frozen runoff (kg/m2/s)
+  ustar_berg      =>NULL(), & ! frictional velocity beneath icebergs (m/s)
+  area_berg       =>NULL(), & ! area covered by icebergs(m2/m2)
+  mass_berg       =>NULL(), & ! mass of icebergs(kg/m2)
+  runoff_hflx     =>NULL(), & ! heat content of liquid runoff (W/m2)
+  calving_hflx    =>NULL(), & ! heat content of frozen runoff (W/m2)
+  p               =>NULL(), & ! pressure of overlying ice and atmosphere
+                              ! on ocean surface (Pa)
+  mi              =>NULL()    ! mass of ice (kg/m2)
   integer :: xtype                                   ! REGRID, REDIST or DIRECT
   type(coupler_2d_bc_type)      :: fluxes            ! A structure that may contain an
                                                      ! array of named fields used for
@@ -890,7 +892,6 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
   character(len=48)  :: stagger
   character(len=240) :: basin_file
   integer :: i, j, isd, ied, jsd, jed
-  real, dimension(:, :), allocatable :: tmp
 
   isd = G%isd ; ied = G%ied ; jsd = G%jsd ; jed = G%jed
 
@@ -1078,19 +1079,7 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
   if (CS%read_TIDEAMP) then
     TideAmp_file = trim(CS%inputdir) // trim(TideAmp_file)
-
-    if (do_transform_on_this_pe()) then
-        allocate(tmp(size(CS%TKE_tidal, 2), size(CS%TKE_tidal, 1)))
-        tmp(:, :) = 0.0
-        call read_data(TideAmp_file, 'tideamp', tmp, &
-                       domain=G%self_untrans%domain%mpp_domain, &
-                       timelevel=1)
-        call transform(tmp, CS%TKE_tidal)
-        deallocate(tmp)
-    else
-      call read_data(TideAmp_file, 'tideamp', &
-                     CS%TKE_tidal,domain=G%domain%mpp_domain,timelevel=1)
-    endif
+    call read_data(TideAmp_file, 'tideamp', CS%TKE_tidal,domain=G%domain%mpp_domain,timelevel=1)
 
     do j=jsd, jed; do i=isd, ied
       utide = CS%TKE_tidal(i,j)
@@ -1123,17 +1112,8 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
     call safe_alloc_ptr(CS%gust,isd,ied,jsd,jed)
     gust_file = trim(CS%inputdir) // trim(gust_file)
-    if (do_transform_on_this_pe()) then
-      allocate(tmp(size(CS%gust, 2), size(CS%gust, 1)))
-      call read_data(gust_file, 'gustiness', tmp, &
-                     domain=G%self_untrans%domain%mpp_domain, &
-                     timelevel=1) ! units should be Pa
-      call transform(tmp, CS%gust)
-      deallocate(tmp)
-    else
-      call read_data(gust_file, 'gustiness', CS%gust, &
-                     domain=G%domain%mpp_domain, timelevel=1) ! units should be Pa
-    endif
+    call read_data(gust_file, 'gustiness', CS%gust, domain=G%domain%mpp_domain, &
+                   timelevel=1) ! units should be Pa
   endif
 
 ! See whether sufficiently thick sea ice should be treated as rigid.
@@ -1170,22 +1150,12 @@ subroutine surface_forcing_init(Time, G, param_file, diag, CS, restore_salt, res
 
   if (present(restore_salt)) then ; if (restore_salt) then
     salt_file = trim(CS%inputdir) // trim(CS%salt_restore_file)
-    if (do_transform_on_this_pe()) then
-      CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, &
-                                           domain=G%self_untrans%Domain%mpp_domain)
-    else
-      CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, domain=G%Domain%mpp_domain)
-    endif
+    CS%id_srestore = init_external_field(salt_file, CS%salt_restore_var_name, domain=G%Domain%mpp_domain)
   endif ; endif
 
   if (present(restore_temp)) then ; if (restore_temp) then
     temp_file = trim(CS%inputdir) // trim(CS%temp_restore_file)
-    if (do_transform_on_this_pe()) then
-      CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, &
-                                           domain=G%self_untrans%Domain%mpp_domain)
-    else
-      CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, domain=G%Domain%mpp_domain)
-    endif
+    CS%id_trestore = init_external_field(temp_file, CS%temp_restore_var_name, domain=G%Domain%mpp_domain)
   endif ; endif
 
   ! Set up any restart fields associated with the forcing.
@@ -1273,5 +1243,99 @@ subroutine ice_ocn_bnd_type_chksum(id, timestep, iobt)
 101 FORMAT("   CHECKSUM::",A6,a,'%',a," = ",Z20)
 
 end subroutine ice_ocn_bnd_type_chksum
+
+subroutine transform_surface_forcing(CS)
+  type(surface_forcing_CS), pointer       :: CS
+
+  call transform_pointer(CS%TKE_tidal)
+  call transform_pointer(CS%gust)
+  call transform_pointer(CS%ustar_tidal)
+
+end subroutine transform_surface_forcing
+
+subroutine transform_ice_ocean_boundary(IOB)
+  type(ice_ocean_boundary_type), intent(inout) :: IOB
+
+  integer :: index, m, n
+
+  call transform_pointer(IOB%u_flux)
+  call transform_pointer(IOB%v_flux)
+  call swap_pointer(IOB%u_flux, IOB%v_flux)
+
+  call transform_pointer(IOB%t_flux)
+  call transform_pointer(IOB%q_flux)
+  call transform_pointer(IOB%salt_flux)
+  call transform_pointer(IOB%lw_flux)
+  call transform_pointer(IOB%sw_flux_vis_dir)
+  call transform_pointer(IOB%sw_flux_vis_dif)
+  call transform_pointer(IOB%sw_flux_nir_dir)
+  call transform_pointer(IOB%sw_flux_nir_dif)
+  call transform_pointer(IOB%lprec)
+  call transform_pointer(IOB%fprec)
+  call transform_pointer(IOB%runoff)
+  call transform_pointer(IOB%calving)
+  if (associated(IOB%ustar_berg)) &
+    call transform_pointer(IOB%ustar_berg)
+  if (associated(IOB%area_berg)) &
+    call transform_pointer(IOB%area_berg)
+  if (associated(IOB%mass_berg)) &
+    call transform_pointer(IOB%mass_berg)
+
+  call transform_pointer(IOB%runoff_hflx)
+  call transform_pointer(IOB%calving_hflx)
+  call transform_pointer(IOB%p)
+  call transform_pointer(IOB%mi)
+
+  index = 0
+  do n=1,IOB%fluxes%num_bcs
+    do m=1,IOB%fluxes%bc(n)%num_fields
+      call transform_pointer(IOB%fluxes%bc(n)%field(m)%values)
+    enddo
+  enddo
+
+end subroutine transform_ice_ocean_boundary
+
+subroutine undo_transform_ice_ocean_boundary(IOB)
+  type(ice_ocean_boundary_type), intent(inout) :: IOB
+
+  integer :: index, m, n
+
+  call undo_transform_pointer(IOB%u_flux)
+  call undo_transform_pointer(IOB%v_flux)
+  call swap_pointer(IOB%u_flux, IOB%v_flux)
+
+  call undo_transform_pointer(IOB%t_flux)
+  call undo_transform_pointer(IOB%q_flux)
+  call undo_transform_pointer(IOB%salt_flux)
+  call undo_transform_pointer(IOB%lw_flux)
+  call undo_transform_pointer(IOB%sw_flux_vis_dir)
+  call undo_transform_pointer(IOB%sw_flux_vis_dif)
+  call undo_transform_pointer(IOB%sw_flux_nir_dir)
+  call undo_transform_pointer(IOB%sw_flux_nir_dif)
+  call undo_transform_pointer(IOB%lprec)
+  call undo_transform_pointer(IOB%fprec)
+  call undo_transform_pointer(IOB%runoff)
+  call undo_transform_pointer(IOB%calving)
+
+  if (associated(IOB%ustar_berg)) &
+    call undo_transform_pointer(IOB%ustar_berg)
+  if (associated(IOB%area_berg)) &
+    call undo_transform_pointer(IOB%area_berg)
+  if (associated(IOB%mass_berg)) &
+    call undo_transform_pointer(IOB%mass_berg)
+
+  call undo_transform_pointer(IOB%runoff_hflx)
+  call undo_transform_pointer(IOB%calving_hflx)
+  call undo_transform_pointer(IOB%p)
+  call undo_transform_pointer(IOB%mi)
+
+  index = 0
+  do n=1,IOB%fluxes%num_bcs
+    do m=1,IOB%fluxes%bc(n)%num_fields
+      call undo_transform_pointer(IOB%fluxes%bc(n)%field(m)%values)
+    enddo
+  enddo
+
+end subroutine undo_transform_ice_ocean_boundary
 
 end module MOM_surface_forcing

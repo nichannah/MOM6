@@ -51,7 +51,7 @@ module MOM_set_visc
 !*                                                                     *
 !********+*********+*********+*********+*********+*********+*********+**
 
-use MOM_debugging, only : uvchksum
+use MOM_debugging, only : uvchksum, hchksum, bchksum
 use MOM_cpu_clock, only : cpu_clock_id, cpu_clock_begin, cpu_clock_end, CLOCK_ROUTINE
 use MOM_diag_mediator, only : post_data, register_diag_field, safe_alloc_ptr
 use MOM_diag_mediator, only : diag_ctrl, time_type
@@ -297,8 +297,6 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
   H_to_m = GV%H_to_m ; m_to_H = GV%m_to_H
   C2pi_3 = 8.0*atan(1.0)/3.0
 
-  h_at_vel(:, :) = 0.0
-
   if (.not.associated(CS)) call MOM_error(FATAL,"MOM_vert_friction(BBL): "//&
          "Module must be initialized before it is used.")
   if (.not.CS%bottomdraglaw) return
@@ -336,18 +334,6 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
 !$OMP                                  L_min,Vol_err_min,Vol_err_max,BBL_frac,Cell_width,  &
 !$OMP                                  gam,Rayleigh, Vol_tol, tmp_val_m1_to_p1)
 
-  if (CS%debug) then
-    print*, 'G%JscB: ', G%JscB
-    print*, 'G%JecB: ', G%JecB
-    print*, 'G%IscB: ', G%IscB
-    print*, 'G%IecB: ', G%IecB
-
-    print*, 'G%Jsc: ', G%Jsc
-    print*, 'G%Jec: ', G%Jec
-    print*, 'G%Isc: ', G%Isc
-    print*, 'G%Iec: ', G%Iec
-  endif
-
   do j=G%JscB,G%JecB ; do m=1,2
 
     if (m==1) then
@@ -374,7 +360,6 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
           h_at_vel(i,k) =  0.5 * (h(i,j,k) + h(i+1,j,k))
         endif
       endif ; enddo ; enddo
-
     else
       do k=1,nz ; do i=is,ie ; if (do_i(i)) then
         if (v(i,J,k) * (h(i,j+1,k) - h(i,j,k)) >= 0) then
@@ -385,6 +370,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
         endif
       endif ; enddo ; enddo
     endif
+
 
     if (use_BBL_EOS .or. .not.CS%linear_drag) then
       do i=is,ie ; if (do_i(i)) then
@@ -600,7 +586,7 @@ subroutine set_viscous_BBL(u, v, h, tv, visc, G, GV, CS)
           D_vel = 0.5*(G%bathyT(i,j) + G%bathyT(i,j+1))
           tmp = G%mask2dCv(i+1,J) * 0.5*(G%bathyT(i+1,j) + G%bathyT(i+1,j+1))
           Dp = 2.0 * D_vel * tmp / (D_vel + tmp)
-          tmp = G%mask2dCv(i,J-1) * 0.5*(G%bathyT(i-1,j) + G%bathyT(i-1,j+1))
+          tmp = G%mask2dCv(i-1,J) * 0.5*(G%bathyT(i-1,j) + G%bathyT(i-1,j+1))
           Dm = 2.0 * D_vel * tmp / (D_vel + tmp)
         endif
         if (Dm > Dp) then ; tmp = Dp ; Dp = Dm ; Dm = tmp ; endif
@@ -855,8 +841,8 @@ function set_v_at_u(v, h, G, i, j, k, mask2dCv)
   type(OBC_segment_type), pointer :: segment
 
   hwt(1) = (h(i,j-1,k) + h(i,j,k)) * mask2dCv(i,J-1)
-  hwt(2) = (h(i+1,j-1,k) + h(i+1,j,k)) * mask2dCv(i+1,J-1)
-  hwt(3) = (h(i,j,k) + h(i,j+1,k)) * mask2dCv(i,J)
+  hwt(2) = (h(i,j,k) + h(i,j+1,k)) * mask2dCv(i,J)
+  hwt(3) = (h(i+1,j-1,k) + h(i+1,j,k)) * mask2dCv(i+1,J-1)
   hwt(4) = (h(i+1,j,k) + h(i+1,j+1,k)) * mask2dCv(i+1,J)
 
   hwt_tot = (hwt(1) + hwt(4)) + (hwt(2) + hwt(3))
@@ -887,7 +873,7 @@ function set_u_at_v(u, h, G, i, j, k, mask2dCu)
   hwt_tot = (hwt(1) + hwt(4)) + (hwt(2) + hwt(3))
   set_u_at_v = 0.0
   if (hwt_tot > 0.0) set_u_at_v = &
-          ((hwt(2) * u(I,j,k) + hwt(3) * u(I-1,j+1,k)) + &
+          ((hwt(3) * u(I,j,k) + hwt(2) * u(I-1,j+1,k)) + &
            (hwt(1) * u(I-1,j,k) + hwt(4) * u(I,j+1,k))) / hwt_tot
 end function set_u_at_v
 
@@ -1334,8 +1320,8 @@ subroutine set_viscous_ML(u, v, h, tv, fluxes, visc, dt, G, GV, CS)
           k_massive(i) = nkml
           Thtot(i) = 0.0 ; Shtot(i) = 0.0 ; Rhtot(i) = 0.0
           vhtot(i) = dt_Rho0 * fluxes%tauy(i,J)
-          uhtot(i) = 0.25 * dt_Rho0 * ((fluxes%taux(I,j) + fluxes%tauy(I-1,j+1)) + &
-                                       (fluxes%taux(I-1,j) + fluxes%tauy(I,j+1)))
+          uhtot(i) = 0.25 * dt_Rho0 * ((fluxes%taux(I,j) + fluxes%taux(I-1,j+1)) + &
+                                       (fluxes%taux(I-1,j) + fluxes%taux(I,j+1)))
 
          if (CS%omega_frac >= 1.0) then ; absf = 2.0*CS%omega ; else
            absf = 0.5*(abs(G%CoriolisBu(I-1,J)) + abs(G%CoriolisBu(I,J)))

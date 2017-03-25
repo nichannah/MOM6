@@ -675,16 +675,17 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   integer :: isd, ied, jsd, jed, IsdB, IedB, JsdB, JedB
   integer :: ioff, joff
 
-  real :: u_cor_sign, v_cor_sign ! The sign of the Coriolis acceleration
+  ! The sign of the Coriolis acceleration. Allow this to be swapped to show
+  ! symmetry between i and j-directed calculations.
+  real :: pos_sign, neg_sign
 
-  u_cor_sign = 1.0
-  v_cor_sign = -1.0
+  pos_sign = 1.0
+  neg_sign = -1.0
 
   if (do_transform_on_this_pe()) then
-    u_cor_sign = -1.0
-    v_cor_sign = 1.0
+    pos_sign = -1.0
+    neg_sign = 1.0
   endif
-
 
   if (.not.associated(CS)) call MOM_error(FATAL, &
       "btstep: Module MOM_barotropic must be initialized before it is used.")
@@ -921,12 +922,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     vbt(i,J) = 0.0 ; Datv(i,J) = 0.0 ; bt_rem_v(i,J) = 0.0 ; vhbt0(I,j) = 0.0
   enddo ; enddo
 
-  ! These matter to valgrind.
-  PFu(:, :) = 0.0
-  PFv(:, :) = 0.0
-  Cor_u(:, :) = 0.0
-  Cor_v(:, :) = 0.0
-
   ! Copy input arrays into their wide-halo counterparts.  eta_in and eta_PF_in
   ! have the correct values in their halo regions.
   if (interp_eta_PF) then
@@ -1020,7 +1015,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
                                      Datu, Datv, BTCL_u, BTCL_v)
   endif
 
-
 !   Here the vertical average accelerations due to the Coriolis, advective,
 ! pressure gradient and horizontal viscous terms in the layer momentum
 ! equations are calculated.  These will be used to determine the difference
@@ -1050,14 +1044,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     BT_force_v(i,J) = fluxes%tauy(i,J) * I_rho0*CS%IDatv(i,J)*visc_rem_v(i,J,1)
   enddo ; enddo
 
-  if (CS%debug) then
-    call uvchksum("fluxes%tau[xy]", fluxes%taux, fluxes%tauy, CS%debug_BT_HI,haloshift=0)
-    call uvchksum("CS%IDat[uv]", CS%IDatu, CS%IDatv, CS%debug_BT_HI,haloshift=0)
-
-    call uvchksum("visc_rem_[uv](:,:,1)", visc_rem_u(:,:,1), visc_rem_v(:,:,1), CS%debug_BT_HI,haloshift=0)
-    call uvchksum("A0 BT_force_[uv]", BT_force_u, BT_force_v, CS%debug_BT_HI,haloshift=0)
-  endif
-
   if (present(taux_bot) .and. present(tauy_bot)) then
     if (associated(taux_bot) .and. associated(tauy_bot)) then
 !$OMP do
@@ -1068,10 +1054,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       do J=js-1,je ; do i=is,ie
         BT_force_v(i,J) = BT_force_v(i,J) - tauy_bot(i,J) * I_rho0 * CS%IDatv(i,J)
       enddo ; enddo
-
-      if (CS%debug) then
-        call uvchksum('tau[xy]_bot', taux_bot, tauy_bot, CS%debug_BT_HI,haloshift=0)
-      endif
     endif
   endif
 
@@ -1083,7 +1065,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
        BT_force_u(I,j) = BT_force_u(I,j) + wt_u(I,j,k) * bc_accel_u(I,j,k)
     enddo ; enddo
   enddo
-
 !$OMP do
   do J=Jsq,Jeq
     do k=1,nz ; do i=is,ie
@@ -1212,12 +1193,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (id_clock_calc_pre > 0) call cpu_clock_begin(id_clock_calc_pre)
   endif
 
-  ! These matter to valgrind
-  amer(:, :) = 0.0
-  bmer(:, :) = 0.0
-  cmer(:, :) = 0.0
-  dmer(:, :) = 0.0
-
   ! Determine the weighted Coriolis parameters for the neighboring velocities.
 !$OMP parallel default(none) shared(isvf,ievf,jsvf,jevf,amer,bmer,cmer,dmer,DCor_u, &
 !$OMP                               q,CS,azon,bzon,czon,dzon,DCor_v,is,ie,js,je,nz, &
@@ -1242,12 +1217,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   enddo ; enddo
 
-  ! These matter to valgrind
-  azon(:, :) = 0.0
-  bzon(:, :) = 0.0
-  czon(:, :) = 0.0
-  dzon(:, :) = 0.0
-
 !$OMP do
   do j=jsvf-1,jevf+1 ; do I=isvf-1,ievf
     if (CS%Sadourny) then
@@ -1267,26 +1236,12 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
   enddo ; enddo
 
-  if (CS%debug) then
-    call Bchksum(q, "q", CS%debug_BT_HI,haloshift=0)
-
-    call uvchksum("[uv]bt ubt", ubt, vbt, CS%debug_BT_HI,haloshift=0)
-    call uvchksum("DCor_[uv]", DCor_u, DCor_v, CS%debug_BT_HI,haloshift=0)
-
-    call uvchksum("amer/azon", amer, azon, CS%debug_BT_HI,haloshift=0)
-    call uvchksum("bmer/bzon", bmer, bzon, CS%debug_BT_HI,haloshift=0)
-    call uvchksum("cmer/czon", cmer, czon, CS%debug_BT_HI,haloshift=0)
-    call uvchksum("dmer/dzon", dmer, dzon, CS%debug_BT_HI,haloshift=0)
-  endif
-
   !   If they are present, use u_Cor and v_Cor as the reference values for the
   ! Coriolis terms, including the viscous remnant if it is present.
 !$OMP do
   do j=js-1,je+1 ; do I=is-1,ie ; ubt_Cor(I,j) = 0.0 ; enddo ; enddo
-  ubt_Cor(:, :) = 0.0
 !$OMP do
   do J=js-1,je ; do i=is-1,ie+1 ; vbt_Cor(i,J) = 0.0 ; enddo ; enddo
-  vbt_Cor(:, :) = 0.0
 !$OMP do
   do j=js-1,je+1
     do k=1,nz ; do I=is-1,ie
@@ -1302,13 +1257,13 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
 
 !$OMP do
   do j=js,je ; do I=is-1,ie
-    Cor_ref_u(I,j) =  u_cor_sign * &
+    Cor_ref_u(I,j) =  pos_sign * &
         ((azon(I,j-1) * vbt_Cor(i,j-1) + czon(I+1,j) * vbt_Cor(i+1,j)) + &
          (bzon(I,j) * vbt_Cor(i  ,j) + dzon(I+1,j-1) * vbt_Cor(i+1,j-1)))
   enddo ; enddo
 !$OMP do
   do J=js-1,je ; do i=is,ie
-    Cor_ref_v(i,J) = v_cor_sign * &
+    Cor_ref_v(i,J) = neg_sign * &
         ((amer(I-1,j) * ubt_Cor(I-1,j) + cmer(I  ,j+1) * ubt_Cor(I  ,j+1)) + &
          (bmer(I  ,j) * ubt_Cor(I  ,j) + dmer(I-1,j+1) * ubt_Cor(I-1,j+1)))
   enddo ; enddo
@@ -1526,7 +1481,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
   if (CS%debug) then
     call uvchksum("BT [uv]hbt", uhbt*GV%H_to_m, vhbt*GV%H_to_m, &
                   CS%debug_BT_HI,haloshift=0)
-    call uvchksum("BT Initial [uv]bt", ubt, vbt, CS%debug_BT_HI,haloshift=0)
+    call uvchksum("BT Initial [uv]bt", ubt, vbt, &
+                  CS%debug_BT_HI,haloshift=0)
     call hchksum(GV%H_to_kg_m2*eta, "BT Initial eta", CS%debug_BT_HI,haloshift=0)
     call uvchksum("BT BT_force_[uv]", BT_force_u, BT_force_v, &
                   CS%debug_BT_HI,haloshift=0)
@@ -1547,9 +1503,8 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     endif
     call uvchksum("BT wt_[uv]", wt_u, wt_v, G%HI, haloshift=1)
     call uvchksum("BT frhat[uv]", CS%frhatu, CS%frhatv, G%HI, haloshift=1)
-    call uvchksum("BT bc_accel_[uv]", bc_accel_u, bc_accel_v, &
-                  G%HI, haloshift=0)
-    call uvchksum("BT IDat[uv]", CS%IDatu, CS%IDatv, G%HI, haloshift=0)
+    call uvchksum("BT bc_accel_[uv]", bc_accel_u, bc_accel_v, G%HI)
+    call uvchksum("BT IDat[uv]", CS%IDatu, CS%IDatv, G%HI)
     call uvchksum("BT visc_rem_[uv]", visc_rem_u, visc_rem_v, &
                   G%HI,haloshift=1)
   endif
@@ -1776,7 +1731,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! On odd-steps, update v first.
 !GOMP do
       do J=jsv-1,jev ; do i=isv-1,iev+1
-        Cor_v(i,J) = v_cor_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = neg_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
         PFv(i,J) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_N(i,j) - &
@@ -1809,7 +1764,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
           vhbt(i,J) = Datv(i,J)*vbt_trans(i,J) + vhbt0(i,J)
         enddo ; enddo
       endif
-
       if (apply_v_OBCs) then  ! copy back the value for v-points on the boundary.
 !GOMP do
         do J=jsv-1,jev ; do i=isv-1,iev+1 ; if (OBC%OBC_segment_v(i,J) /= OBC_NONE) then
@@ -1819,10 +1773,9 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! Now update the zonal velocity.
 !GOMP do
       do j=jsv,jev ; do I=isv-1,iev
-        Cor_u(I,j) = u_cor_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
+        Cor_u(I,j) = pos_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
                       (bzon(I,j) * vbt(i,J) + dzon(I+1,j-1) * vbt(i+1,J-1))) - &
                      Cor_ref_u(I,j)
-
         PFu(I,j) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_E(i,j) - &
                      (eta_PF_BT(i+1,j)-eta_PF(i+1,j))*gtot_W(i+1,j)) * &
                     dgeo_de * CS%IdxCu(I,j)
@@ -1864,7 +1817,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! On even steps, update u first.
 !GOMP do
       do j=jsv-1,jev+1 ; do I=isv-1,iev
-        Cor_u(I,j) = u_cor_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
+        Cor_u(I,j) = pos_sign * ((azon(I,j-1) * vbt(i,J-1) + czon(I+1,j) * vbt(i+1,J)) + &
                       (bzon(I,j) * vbt(i,J) + dzon(I+1,j-1) * vbt(i+1,J-1))) - &
                      Cor_ref_u(I,j)
         PFu(I,j) = ((eta_PF_BT(i,j)-eta_PF(i,j))*gtot_E(i,j) - &
@@ -1908,7 +1861,7 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       ! Now update the meridional velocity.
 !GOMP do
       do J=jsv-1,jev ; do i=isv,iev
-        Cor_v(i,J) = v_cor_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
+        Cor_v(i,J) = neg_sign*((amer(I-1,j) * ubt(I-1,j) + cmer(I,j+1) * ubt(I,j+1)) + &
                 (bmer(I,j) * ubt(I,j) + dmer(I-1,j+1) * ubt(I-1,j+1))) - &
                 Cor_ref_v(i,J)
 
@@ -1950,14 +1903,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
       endif
     endif
 !GOMP end parallel
-
-    if (CS%debug_bt) then
-      call uvchksum("BT Cor_[uv] just after OBC", Cor_u, Cor_v, G%HI,haloshift=1)
-      call uvchksum("BT [uv]bt just after OBC", ubt, vbt, G%HI,haloshift=1)
-      call uvchksum("BT PF[uv] just after OBC", PFu, PFv, G%HI,haloshift=1)
-      call uvchksum("BT uhbt just after OBC", uhbt, vhbt, G%HI,haloshift=1)
-    endif
-
 
 !GOMP parallel default(none) shared(is,ie,js,je,find_PF,PFu_bt_sum,wt_accel2, &
 !GOMP                               PFu,PFv_bt_sum,PFv,find_Cor,Coru_bt_sum,  &
@@ -2044,9 +1989,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (CS%debug_bt) then
       call uvchksum("BT [uv]hbt just after OBC", uhbt*GV%H_to_m, &
                     vhbt*GV%H_to_m, CS%debug_BT_HI,haloshift=iev-ie)
-      call hchksum(GV%H_to_kg_m2*eta, "BT eta just after OBC", CS%debug_BT_HI, haloshift=iev-ie)
-      call hchksum(GV%H_to_kg_m2*eta_src, "BT eta_src just after OBC", CS%debug_BT_HI, haloshift=iev-ie)
-      call hchksum(CS%IareaT, "BT CS%IareaT after OBC", CS%debug_BT_HI, haloshift=iev-ie)
     endif
 
 !$OMP parallel do default(none) shared(isv,iev,jsv,jev,n,eta,eta_src,dtbt,CS,uhbt,vhbt,eta_wtd,wt_eta)
@@ -2260,7 +2202,6 @@ subroutine btstep(U_in, V_in, eta_in, dt, bc_accel_u, bc_accel_v, &
     if (find_etaav) call complete_group_pass(CS%pass_etaav, G%Domain)
     call complete_group_pass(CS%pass_ubta_uhbta, G%Domain)
   endif
-
 
   if (apply_OBCs) call destroy_BT_OBC(BT_OBC)
 
@@ -3049,7 +2990,6 @@ subroutine btcalc(h, G, GV, CS, h_u, h_v, may_use_default)
           hatutot(I) = hatutot(I) + CS%frhatu(I,j,k)
         enddo ; enddo
       elseif (CS%hvel_scheme == HYBRID .or. use_default) then
-        ! This one gets called with double_gyre
         do I=is-2,ie+1
           e_u(I,nz+1) = -0.5 * GV%m_to_H * (G%bathyT(i+1,j) + G%bathyT(i,j))
           D_shallow_u(I) = -GV%m_to_H * min(G%bathyT(i+1,j), G%bathyT(i,j))

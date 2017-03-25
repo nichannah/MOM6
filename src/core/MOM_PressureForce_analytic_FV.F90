@@ -499,9 +499,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   use_ALE = .false.
   if (associated(ALE_CSp)) use_ALE = usePressureReconstruction(ALE_CSp) .and. use_EOS
 
-  PFu(:, :, :) = 0.0
-  PFv(:, :, :) = 0.0
-
   PRScheme = pressureReconstructionScheme(ALE_CSp)
   h_neglect = GV%H_subroundoff
   I_Rho0 = 1.0/GV%Rho0
@@ -512,7 +509,8 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     !   Determine the surface height anomaly for calculating self attraction
     ! and loading.  This should really be based on bottom pressure anomalies,
     ! but that is not yet implemented, and the current form is correct for
-    ! barotropic tides.  !$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
+    ! barotropic tides.
+!$OMP parallel do default(none) shared(Isq,Ieq,Jsq,Jeq,nz,e,G,GV,h)
     do j=Jsq,Jeq+1
       do i=Isq,Ieq+1
         e(i,j,1) = -1.0*G%bathyT(i,j)
@@ -543,10 +541,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
   enddo ; enddo ; enddo
 !$OMP end parallel
 
-  if (.false.) then
-    call hchksum(e, "PressureForce_AFV_Bouss eta", G%HI, haloshift=0)
-    call hchksum(h, "PressureForce_AFV_Bouss h", G%HI, haloshift=0)
-  endif
 
   if (use_EOS) then
 ! With a bulk mixed layer, replace the T & S of any layers that are
@@ -638,14 +632,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
     Jsq_bk=G%Block(n)%JscB    ; Jeq_bk=G%Block(n)%JecB
     ioff_bk = G%Block(n)%idg_offset - G%HI%idg_offset
     joff_bk = G%Block(n)%jdg_offset - G%HI%jdg_offset
-
-    if (.false.) then
-      print*, 'ioff_bk, joff_bk: ', ioff_bk, joff_bk
-      print*, 'is_bk, js_bk: ', is_bk, js_bk
-      print*, 'ie_bk, je_bk: ', ie_bk, je_bk
-      print*, 'isq_bk, jsq_bk: ', isq_bk, jsq_bk
-      print*, 'ieq_bk, jeq_bk: ', ieq_bk, jeq_bk
-    endif
 
     ! Set the surface boundary conditions on pressure anomaly and its horizontal
     ! integrals, assuming that the surface pressure anomaly varies linearly
@@ -774,7 +760,6 @@ subroutine PressureForce_AFV_Bouss(h, tv, PFu, PFv, G, GV, CS, ALE_CSp, p_atm, p
       enddo ; enddo
     endif
   endif
-
 
   if (CS%id_e_tidal>0) call post_data(CS%id_e_tidal, e_tidal, CS%diag)
 

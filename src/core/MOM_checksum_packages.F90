@@ -77,7 +77,6 @@ subroutine MOM_state_chksum_5arg(mesg, u, v, h, uh, vh, G, GV, haloshift)
   ! counts, there must be no redundant points, so all variables use is..ie
   ! and js...je as their extent.
   hs=1; if (present(haloshift)) hs=haloshift
-
   call uvchksum(mesg//" [uv]", u, v, G%HI, haloshift=hs)
   call hchksum(GV%H_to_kg_m2*h, mesg//" h",G%HI, haloshift=hs)
   call uvchksum(mesg//" [uv]h", GV%H_to_kg_m2*uh, GV%H_to_kg_m2*vh, &
@@ -110,7 +109,7 @@ subroutine MOM_state_chksum_3arg(mesg, u, v, h, G, GV, haloshift)
   ! counts, there must be no redundant points, so all variables use is..ie
   ! and js...je as their extent.
   hs=1; if (present(haloshift)) hs=haloshift
-  call uvchksum(mesg//" u", u, v, G%HI,haloshift=hs)
+  call uvchksum(mesg//" [uv]", u, v, G%HI,haloshift=hs)
   call hchksum(GV%H_to_kg_m2*h, mesg//" h",G%HI,haloshift=hs)
 end subroutine MOM_state_chksum_3arg
 

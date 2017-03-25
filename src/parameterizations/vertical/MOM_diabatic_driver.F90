@@ -1309,6 +1309,10 @@ subroutine diabatic(u, v, h, tv, fluxes, visc, ADp, CDp, dt, G, GV, CS)
     call cpu_clock_begin(id_clock_tridiag)
 !$OMP parallel do default(none) shared(js,je,Isq,Ieq,ADp,u,hold,ea,h_neglect,eb,nz,Idt) &
 !$OMP                          private(hval,b1,d1,c1,eaval)
+    if (CS%debug) then
+      call MOM_state_chksum("before 1st loop tridiag ", u, v, h, G, GV, haloshift=0)
+    endif
+
     do j=js,je
       do I=Isq,Ieq
         if (ASSOCIATED(ADp%du_dt_dia)) ADp%du_dt_dia(I,j,1) = u(I,j,1)
@@ -1337,9 +1341,6 @@ subroutine diabatic(u, v, h, tv, fluxes, visc, ADp, CDp, dt, G, GV, CS)
         enddo
       endif
     enddo
-    if (CS%debug) then
-      call MOM_state_chksum("aft 1st loop tridiag ", u, v, h, G, GV, haloshift=0)
-    endif
 !$OMP parallel do default(none) shared(Jsq,Jeq,is,ie,ADp,v,hold,ea,h_neglect,eb,nz,Idt) &
 !$OMP                          private(hval,b1,d1,c1,eaval)
     do J=Jsq,Jeq
@@ -2196,6 +2197,7 @@ subroutine diabatic_driver_init(Time, G, GV, param_file, useALEalgorithm, diag, 
     allocate(CS%frazil_temp_diag(isd:ied,jsd:jed,nz) ) ; CS%frazil_temp_diag(:,:,:) = 0.
     allocate(CS%frazil_heat_diag(isd:ied,jsd:jed,nz) ) ; CS%frazil_heat_diag(:,:,:) = 0.
   endif
+
 
   ! CS%useConvection is set to True IF convection will be used, otherwise False.
   ! CS%Conv_CSp is allocated by diffConvection_init()

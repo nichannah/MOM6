@@ -63,12 +63,14 @@ program MOM_main
   use MOM_sum_output,      only : write_energy, accumulate_net_input
   use MOM_sum_output,      only : MOM_sum_output_init, sum_output_CS
   use MOM_surface_forcing, only : set_forcing, forcing_save_restart
+  use MOM_surface_forcing, only : transform_forcing
   use MOM_surface_forcing, only : surface_forcing_init, surface_forcing_CS
   use MOM_time_manager,    only : time_type, set_date, set_time, get_date, time_type_to_real
   use MOM_time_manager,    only : operator(+), operator(-), operator(*), operator(/)
   use MOM_time_manager,    only : operator(>), operator(<), operator(>=)
   use MOM_time_manager,    only : increment_date, set_calendar_type, month_name
   use MOM_time_manager,    only : JULIAN, NOLEAP, THIRTY_DAY_MONTHS, NO_CALENDAR
+  use MOM_transform_test,  only : do_transform_on_this_pe
   use MOM_variables,       only : surface
   use MOM_verticalGrid,    only : verticalGrid_type
   use MOM_write_cputime,   only : write_cputime, MOM_write_cputime_init
@@ -438,8 +440,17 @@ program MOM_main
 
     ! Set the forcing for the next steps.
     if (.not. offline_tracer_mode) then
+      if (do_transform_on_this_pe()) then
+        if (n /= 1) then
+          call transform_forcing(fluxes)
+        endif
+        call set_forcing(state, fluxes, Time, Time_step_ocean, &
+                         grid%self_untrans, surface_forcing_CSp)
+        call transform_forcing(fluxes)
+      else
         call set_forcing(state, fluxes, Time, Time_step_ocean, grid, &
                      surface_forcing_CSp)
+      endif
     endif
     if (MOM_CSp%debug) then
       call MOM_forcing_chksum("After set forcing", fluxes, grid, haloshift=0)

@@ -262,11 +262,6 @@ subroutine MOM_tracer_chksum(mesg, Tr, ntr, G)
 
 end subroutine MOM_tracer_chksum
 
-!> Transform tracer arrays for the purposes of the transform test.
-subroutine transform_tracer_registry(Reg)
-  type(tracer_registry_type), pointer    :: Reg        !< pointer to tracer registry
-
-end subroutine transform_tracer_registry
 
 !> This routine include declares and sets the variable "version".
 subroutine tracer_registry_init(param_file, Reg)

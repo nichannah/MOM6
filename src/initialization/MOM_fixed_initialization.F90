@@ -141,9 +141,7 @@ subroutine MOM_initialize_fixed(G, OBC, PF, write_geom, output_dir)
   call compute_global_grid_integrals(G)
 
 ! Write out all of the grid data used by this run.
-  if (write_geom) then
-      call write_ocean_geometry_file(G, PF, output_dir)
-  endif
+  if (write_geom) call write_ocean_geometry_file(G, PF, output_dir)
 
   call callTree_leave('MOM_initialize_fixed()')
 

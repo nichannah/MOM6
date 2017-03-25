@@ -84,14 +84,11 @@ use boundary_impulse_tracer, only : boundary_impulse_tracer_column_physics, boun
 use boundary_impulse_tracer, only : boundary_impulse_stock, boundary_impulse_tracer_end
 use boundary_impulse_tracer, only : boundary_impulse_tracer_CS
 
-use MOM_transform_test,       only : transform_allocatable
-
 implicit none ; private
 
 public call_tracer_register, tracer_flow_control_init, call_tracer_set_forcing
 public call_tracer_column_fns, call_tracer_surface_state, call_tracer_stocks
 public get_chl_from_model
-public transform_tracers
 
 type, public :: tracer_flow_control_CS ; private
   logical :: use_USER_tracer_example = .false.
@@ -238,71 +235,6 @@ subroutine call_tracer_register(HI, GV, param_file, CS, tr_Reg, restart_CS)
 
 
 end subroutine call_tracer_register
-
-subroutine transform_tracers(CS, tr_Reg)
-  type(tracer_flow_control_CS), pointer    :: CS
-  type(tracer_registry_type),   pointer    :: tr_Reg
-
-  integer :: ntr, m
-
-  if (CS%use_USER_tracer_example) then
-    call transform_allocatable(CS%USER_tracer_example_CSp%tr)
-
-    if (CS%USER_tracer_example_CSp%mask_tracers) then
-      call transform_allocatable(CS%USER_tracer_example_CSp%tr_aux)
-    endif
-
-    ! Now reset the tracer pointers
-    do ntr=1,tr_Reg%ntr
-      do m=1,NTR
-        if (CS%USER_tracer_example_CSp%tr_desc(m)%name == &
-            tr_Reg%Tr(ntr)%name) then
-          tr_Reg%Tr(ntr)%t => CS%USER_tracer_example_CSp%tr(:, :, :, m)
-          exit
-        endif
-      enddo
-    enddo
-  endif
-
-  if (CS%use_ideal_age) then
-    call transform_allocatable(CS%ideal_age_tracer_CSp%tr)
-
-    if (CS%ideal_age_tracer_CSp%mask_tracers) then
-      call transform_allocatable(CS%ideal_age_tracer_CSp%tr_aux)
-    endif
-
-    ! Now reset the tracer pointers
-    do ntr=1,tr_Reg%ntr
-      do m=1,3
-        if (CS%ideal_age_tracer_CSp%tr_desc(m)%name == &
-            tr_Reg%Tr(ntr)%name) then
-          tr_Reg%Tr(ntr)%t => CS%ideal_age_tracer_CSp%tr(:, :, :, m)
-          exit
-        endif
-      enddo
-    enddo
-  endif
-
-  if (CS%use_advection_test_tracer) then
-    call transform_allocatable(CS%advection_test_tracer_CSp%tr)
-
-    if (CS%ideal_age_tracer_CSp%mask_tracers) then
-      call transform_allocatable(CS%advection_test_tracer_CSp%tr_aux)
-    endif
-
-    ! Now reset the tracer pointers
-    do ntr=1,tr_Reg%ntr
-      do m=1,11
-        if (CS%advection_test_tracer_CSp%tr_desc(m)%name == &
-            tr_Reg%Tr(ntr)%name) then
-          tr_Reg%Tr(ntr)%t => CS%advection_test_tracer_CSp%tr(:, :, :, m)
-          exit
-        endif
-      enddo
-    enddo
-  endif
-
-end subroutine transform_tracers
 
 subroutine tracer_flow_control_init(restart, day, G, GV, h, param_file, diag, OBC, &
                                 CS, sponge_CSp, ALE_sponge_CSp, diag_to_Z_CSp, tv)

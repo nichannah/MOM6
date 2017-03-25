@@ -21,7 +21,7 @@ module MOM_variables
 !***********************************************************************
 
 use MOM_domains, only : MOM_domain_type, get_domain_extent, group_pass_type
-use MOM_debugging, only : hchksum, uvchksum
+use MOM_debugging, only : hchksum
 use MOM_error_handler, only : MOM_error, FATAL
 use MOM_grid, only : ocean_grid_type
 use MOM_io, only : vardesc
@@ -33,7 +33,7 @@ implicit none ; private
 
 #include <MOM_memory.h>
 
-public MOM_thermovar_chksum, MOM_BT_cont_chksum
+public MOM_thermovar_chksum
 public ocean_grid_type, vardesc, alloc_BT_cont_type, dealloc_BT_cont_type
 
 type, public :: p3d
@@ -355,41 +355,5 @@ subroutine MOM_thermovar_chksum(mesg, tv, G)
   if (associated(tv%TempxPmE)) &
     call hchksum(tv%TempxPmE, mesg//" tv%TempxPmE",G%HI)
 end subroutine MOM_thermovar_chksum
-
-
-subroutine MOM_BT_cont_chksum(BT_cont, mesg, G)
-  type(BT_cont_type),      pointer :: BT_cont
-  character(len=*),        intent(in) :: mesg
-  type(ocean_grid_type),   intent(in) :: G
-
-  if (associated(BT_cont%FA_u_EE) .and. associated(BT_cont%FA_v_NN)) then
-    call uvchksum(mesg//" BT_cont%FA_[uv]_EE", BT_cont%FA_u_EE, BT_cont%FA_v_NN, G%HI)
-  endif
-
-  if (associated(BT_cont%FA_u_E0) .and. associated(BT_cont%FA_v_N0)) then
-    call uvchksum(mesg//" BT_cont%FA_[uv]_E0", BT_cont%FA_u_E0, BT_cont%FA_v_N0, G%HI)
-  endif
-
-  if (associated(BT_cont%FA_u_WW) .and. associated(BT_cont%FA_v_SS)) then
-    call uvchksum(mesg//" BT_cont%FA_[uv]_WW", BT_cont%FA_u_WW, BT_cont%FA_v_SS, G%HI)
-  endif
-
-  if (associated(BT_cont%FA_u_W0) .and. associated(BT_cont%FA_v_S0)) then
-    call uvchksum(mesg//" BT_cont%FA_[uv]_W0", BT_cont%FA_u_W0, BT_cont%FA_v_S0, G%HI)
-  endif
-
-  if (associated(BT_cont%uBT_EE) .and. associated(BT_cont%vBT_NN)) then
-    call uvchksum(mesg//" BT_cont%[uv]BT_EE", BT_cont%uBT_EE, BT_cont%vBT_NN, G%HI)
-  endif
-
-  if (associated(BT_cont%uBT_WW) .and. associated(BT_cont%vBT_SS)) then
-    call uvchksum(mesg//" BT_cont%[uv]BT_WW", BT_cont%uBT_WW, BT_cont%vBT_SS, G%HI)
-  endif
-
-  if (associated(BT_cont%h_u) .and. associated(BT_cont%h_v)) then
-    call uvchksum(mesg//" BT_cont%h_[uv]", BT_cont%h_u, BT_cont%h_v, G%HI)
-  endif
-
-end subroutine MOM_BT_cont_chksum
 
 end module MOM_variables

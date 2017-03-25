@@ -14,7 +14,7 @@ use MOM_open_boundary, only : ocean_OBC_type
 use MOM_string_functions, only : uppercase
 use MOM_variables,     only : accel_diag_ptrs
 use MOM_verticalGrid,  only : verticalGrid_type
-use MOM_checksums,     only : bchksum
+use MOM_checksums,     only : uvchksum, bchksum, hchksum
 use MOM_transform_test, only : do_transform_on_this_pe
 
 implicit none ; private
@@ -283,10 +283,10 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
     endif ; endif
     do J=Jsq-1,Jeq+1 ; do I=Isq-1,Ieq+1
       if (CS%no_slip ) then
-        relative_vorticity = pos_sign * (2.0-G%mask2dBu(I,J)) * (dvdx(I,J) - dudy(I,J)) * &
+        relative_vorticity = (2.0-G%mask2dBu(I,J)) * (pos_sign*(dvdx(I,J) - dudy(I,J))) * &
             (G%IdxBu(I,J) * G%IdyBu(I,J)) ! ### Using G%IareaBu(I,J) changes answers.
       else
-        relative_vorticity = pos_sign * G%mask2dBu(I,J) * (dvdx(I,J) - dudy(I,J)) * &
+        relative_vorticity = G%mask2dBu(I,J) * (pos_sign*(dvdx(I,J) - dudy(I,J))) * &
             (G%IdxBu(I,J) * G%IdyBu(I,J)) ! ### Using G%IareaBu(I,J) changes answers.
       endif
       absolute_vorticity = G%CoriolisBu(I,J) + relative_vorticity
@@ -452,21 +452,22 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       if (CS%Coriolis_En_Dis) then
         ! Energy dissipating biased scheme, Hallberg 200x
         do j=js,je ; do I=Isq,Ieq
-          if (q(I,J)*u(I,j,k) == 0.0) then
-            temp1 = q(I,J) * ( (vh_max(i,j)+vh_max(i+1,j)) &
-                             + (vh_min(i,j)+vh_min(i+1,j)) )*0.5
-          elseif (q(I,J)*u(I,j,k) < 0.0) then
-            temp1 = q(I,J) * (vh_max(i,j)+vh_max(i+1,j))
-          else
-            temp1 = q(I,J) * (vh_min(i,j)+vh_min(i+1,j))
-          endif
           if (q(I,J-1)*u(I,j,k) == 0.0) then
-            temp2 = q(I,J-1) * ( (vh_max(i,j-1)+vh_max(i+1,j-1)) &
+            temp1 = q(I,J-1) * ( (vh_max(i,j-1)+vh_max(i+1,j-1)) &
                                + (vh_min(i,j-1)+vh_min(i+1,j-1)) )*0.5
-          elseif (q(I,J-1)*u(I,j,k) < 0.0) then
-            temp2 = q(I,J-1) * (vh_max(i,j-1)+vh_max(i+1,j-1))
+          elseif (pos_sign*q(I,J-1)*u(I,j,k) < 0.0) then
+            temp1 = q(I,J-1) * (vh_max(i,j-1)+vh_max(i+1,j-1))
           else
-            temp2 = q(I,J-1) * (vh_min(i,j-1)+vh_min(i+1,j-1))
+            temp1 = q(I,J-1) * (vh_min(i,j-1)+vh_min(i+1,j-1))
+          endif
+
+          if (q(I,J)*u(I,j,k) == 0.0) then
+            temp2 = q(I,J) * ( (vh_max(i,j)+vh_max(i+1,j)) &
+                             + (vh_min(i,j)+vh_min(i+1,j)) )*0.5
+          elseif (pos_sign*q(I,J)*u(I,j,k) < 0.0) then
+            temp2 = q(I,J) * (vh_max(i,j)+vh_max(i+1,j))
+          else
+            temp2 = q(I,J) * (vh_min(i,j)+vh_min(i+1,j))
           endif
           CAu(I,j,k) = pos_sign * 0.25 * G%IdxCu(I,j) * (temp1 + temp2)
         enddo ; enddo
@@ -553,6 +554,7 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
       if (ASSOCIATED(AD%gradKEu)) AD%gradKEu(I,j,k) = -KEx(I,j)
     enddo ; enddo
 
+
     ! Calculate the tendencies of meridional velocity due to the Coriolis
     ! force and momentum advection.  On a Cartesian grid, this is
     !     CAv = - q * uh - d(KE)/dy.
@@ -563,15 +565,16 @@ subroutine CorAdCalc(u, v, h, uh, vh, CAu, CAv, OBC, AD, G, GV, CS)
           if (q(I-1,J)*v(i,J,k) == 0.0) then
             temp1 = q(I-1,J) * ( (uh_max(i-1,j)+uh_max(i-1,j+1)) &
                                + (uh_min(i-1,j)+uh_min(i-1,j+1)) )*0.5
-          elseif (q(I-1,J)*v(i,J,k) > 0.0) then
+          elseif (pos_sign*q(I-1,J)*v(i,J,k) > 0.0) then
             temp1 = q(I-1,J) * (uh_max(i-1,j)+uh_max(i-1,j+1))
           else
             temp1 = q(I-1,J) * (uh_min(i-1,j)+uh_min(i-1,j+1))
           endif
+
           if (q(I,J)*v(i,J,k) == 0.0) then
             temp2 = q(I,J) * ( (uh_max(i,j)+uh_max(i,j+1)) &
                              + (uh_min(i,j)+uh_min(i,j+1)) )*0.5
-          elseif (q(I,J)*v(i,J,k) > 0.0) then
+          elseif (pos_sign*q(I,J)*v(i,J,k) > 0.0) then
             temp2 = q(I,J) * (uh_max(i,j)+uh_max(i,j+1))
           else
             temp2 = q(I,J) * (uh_min(i,j)+uh_min(i,j+1))

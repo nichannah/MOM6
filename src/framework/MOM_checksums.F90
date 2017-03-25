@@ -82,26 +82,28 @@ subroutine chksum_pair_h_2d(mesg, arrayA, arrayB, HI, haloshift)
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
+  integer :: ret, hshift
+
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
 
   ret = 0
   if (transform_test_started()) then
-    call transform_compare(arrayA, arrayB, ret)
+    call transform_compare(arrayA(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift), &
+                           arrayB(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_pair_h_2d '//trim(mesg))
     else
-      print*, 'TRANSFORM TEST PASSED'
+      print*, 'TRANSFORM TEST PASSED: '//trim(mesg)
     endif
   endif
 
-  if (present(haloshift)) then
-    call chksum_h_2d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_h_2d(arrayB, 'y '//mesg, HI, haloshift)
-  else
-    call chksum_h_2d(arrayA, 'x '//mesg, HI)
-    call chksum_h_2d(arrayB, 'y '//mesg, HI)
-  endif
+  call chksum_h_2d(arrayA, 'x '//mesg, HI, hshift, compare=.false.)
+  call chksum_h_2d(arrayB, 'y '//mesg, HI, hshift, compare=.false.)
 
 end subroutine chksum_pair_h_2d
 
@@ -111,10 +113,17 @@ subroutine chksum_pair_h_3d(mesg, arrayA, arrayB, HI, haloshift)
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
+  integer :: ret, hshift
+
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
 
   if (transform_test_started()) then
-    call transform_compare(arrayA, arrayB, ret)
+    call transform_compare(arrayA(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift, :), &
+                           arrayB(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift, :), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_pair_h_3d '//trim(mesg))
@@ -123,13 +132,8 @@ subroutine chksum_pair_h_3d(mesg, arrayA, arrayB, HI, haloshift)
     endif
   endif
 
-  if (present(haloshift)) then
-    call chksum_h_3d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_h_3d(arrayB, 'y '//mesg, HI, haloshift)
-  else
-    call chksum_h_3d(arrayA, 'x '//mesg, HI)
-    call chksum_h_3d(arrayB, 'y '//mesg, HI)
-  endif
+  call chksum_h_3d(arrayA, 'x '//mesg, HI, hshift, compare=.false.)
+  call chksum_h_3d(arrayB, 'y '//mesg, HI, hshift, compare=.false.)
 
 end subroutine chksum_pair_h_3d
 
@@ -150,13 +154,28 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift, compare)
     do_compare = compare
   endif
 
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
+
+  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
+       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
+    write(0,*) 'chksum_h_2d: haloshift =',hshift
+    write(0,*) 'chksum_h_2d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
+    write(0,*) 'chksum_h_2d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
+    call chksum_error(FATAL,'Error in chksum_h_2d '//trim(mesg))
+  endif
+
   if (do_compare .and. transform_test_started()) then
-    call transform_compare(array, array, ret)
+    call transform_compare(array(HI%isc-hshift:HI%iec+hshift,  &
+                                 HI%jsc-hshift:HI%jec+hshift), &
+                           array(HI%isc-hshift:HI%iec+hshift,  &
+                                 HI%jsc-hshift:HI%jec+hshift), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_h_2d '//trim(mesg))
     else
-      print*, 'TRANSFORM TEST PASSED'
+      print*, 'TRANSFORM TEST PASSED: '//trim(mesg)
     endif
   endif
 
@@ -170,18 +189,6 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift, compare)
   if (calculateStatistics) call subStats(HI, array, mesg)
 
   if (.not.writeChksums) return
-
-  hshift=default_shift
-  if (present(haloshift)) hshift=haloshift
-  if (hshift<0) hshift=HI%ied-HI%iec
-
-  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
-       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
-    write(0,*) 'chksum_h_2d: haloshift =',hshift
-    write(0,*) 'chksum_h_2d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
-    write(0,*) 'chksum_h_2d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
-    call chksum_error(FATAL,'Error in chksum_h_2d '//trim(mesg))
-  endif
 
   bc0=subchk(array, HI, 0, 0)
 
@@ -228,7 +235,6 @@ subroutine chksum_h_2d(array, mesg, HI, haloshift, compare)
       aMax = max(aMax, array(i,j))
       n = n + 1
     enddo ; enddo
-
     aMean = reproducing_sum(array(HI%isc:HI%iec,HI%jsc:HI%jec))
     call sum_across_PEs(n)
     call min_across_PEs(aMin)
@@ -249,11 +255,18 @@ subroutine chksum_pair_B_2d(mesg, arrayA, arrayB, HI, symmetric, haloshift)
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
   logical :: sym
-  integer :: ret
+  integer :: ret, hshift
+
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
 
   ret = 0
   if (transform_test_started()) then
-    call transform_compare(arrayA, arrayB, ret)
+    call transform_compare(arrayA(HI%IscB-hshift:HI%IecB+hshift,  &
+                                  HI%JscB-hshift:HI%JecB+hshift), &
+                           arrayB(HI%IscB-hshift:HI%IecB+hshift,  &
+                                  HI%JscB-hshift:HI%JecB+hshift), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_pair_B_2d '//trim(mesg))
@@ -265,13 +278,8 @@ subroutine chksum_pair_B_2d(mesg, arrayA, arrayB, HI, symmetric, haloshift)
 
   sym = .false. ; if (present(symmetric)) sym = symmetric
 
-  if (present(haloshift)) then
-    call chksum_B_2d(arrayA, 'x '//mesg, HI, haloshift, symmetric=sym)
-    call chksum_B_2d(arrayB, 'y '//mesg, HI, haloshift, symmetric=sym)
-  else
-    call chksum_B_2d(arrayA, 'x '//mesg, HI, symmetric=sym)
-    call chksum_B_2d(arrayB, 'y '//mesg, HI, symmetric=sym)
-  endif
+  call chksum_B_2d(arrayA, 'x '//mesg, HI, haloshift, symmetric=sym, compare=.false.)
+  call chksum_B_2d(arrayB, 'y '//mesg, HI, haloshift, symmetric=sym, compare=.false.)
 
 end subroutine chksum_pair_B_2d
 
@@ -281,11 +289,18 @@ subroutine chksum_pair_B_3d(mesg, arrayA, arrayB, HI, haloshift)
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayA, arrayB !< The arrays to be checksummed
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
+  integer :: ret, hshift
   logical :: sym
 
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
+
   if (transform_test_started()) then
-    call transform_compare(arrayA, arrayB, ret)
+    call transform_compare(arrayA(HI%IscB-hshift:HI%IecB+hshift,  &
+                                  HI%JscB-hshift:HI%JecB+hshift, :), &
+                           arrayB(HI%IscB-hshift:HI%IecB+hshift,  &
+                                  HI%JscB-hshift:HI%JecB+hshift, :), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_pair_B_3d '//trim(mesg))
@@ -294,13 +309,8 @@ subroutine chksum_pair_B_3d(mesg, arrayA, arrayB, HI, haloshift)
     endif
   endif
 
-  if (present(haloshift)) then
-    call chksum_B_3d(arrayA, 'x '//mesg, HI, haloshift)
-    call chksum_B_3d(arrayB, 'y '//mesg, HI, haloshift)
-  else
-    call chksum_B_3d(arrayA, 'x '//mesg, HI)
-    call chksum_B_3d(arrayB, 'y '//mesg, HI)
-  endif
+  call chksum_B_3d(arrayA, 'x '//mesg, HI, hshift, compare=.false.)
+  call chksum_B_3d(arrayB, 'y '//mesg, HI, hshift, compare=.false.)
 
 end subroutine chksum_pair_B_3d
 
@@ -324,13 +334,28 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric, compare)
     do_compare = compare
   endif
 
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
+
+  if ( HI%iscB-hshift<HI%isdB .or. HI%iecB+hshift>HI%iedB .or. &
+       HI%jscB-hshift<HI%jsdB .or. HI%jecB+hshift>HI%jedB ) then
+    write(0,*) 'chksum_B_2d: haloshift =',hshift
+    write(0,*) 'chksum_B_2d: isd,isc,iec,ied=',HI%isdB,HI%iscB,HI%iecB,HI%iedB
+    write(0,*) 'chksum_B_2d: jsd,jsc,jec,jed=',HI%jsdB,HI%jscB,HI%jecB,HI%jedB
+    call chksum_error(FATAL,'Error in chksum_B_2d '//trim(mesg))
+  endif
+
   if (do_compare .and. transform_test_started()) then
-    call transform_compare(array, array, ret)
+    call transform_compare(array(HI%IscB-hshift:HI%IecB+hshift,  &
+                                 HI%JscB-hshift:HI%JecB+hshift), &
+                           array(HI%IscB-hshift:HI%IecB+hshift,  &
+                                 HI%JscB-hshift:HI%JecB+hshift), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_B_2d '//trim(mesg))
     else
-      print*, 'TRANSFORM TEST PASSED'
+      print*, 'TRANSFORM TEST PASSED for '//trim(mesg)
     endif
   endif
 
@@ -344,18 +369,6 @@ subroutine chksum_B_2d(array, mesg, HI, haloshift, symmetric, compare)
   if (calculateStatistics) call subStats(HI, array, mesg)
 
   if (.not.writeChksums) return
-
-  hshift=default_shift
-  if (present(haloshift)) hshift=haloshift
-  if (hshift<0) hshift=HI%ied-HI%iec
-
-  if ( HI%iscB-hshift<HI%isdB .or. HI%iecB+hshift>HI%iedB .or. &
-       HI%jscB-hshift<HI%jsdB .or. HI%jecB+hshift>HI%jedB ) then
-    write(0,*) 'chksum_B_2d: haloshift =',hshift
-    write(0,*) 'chksum_B_2d: isd,isc,iec,ied=',HI%isdB,HI%iscB,HI%iecB,HI%iedB
-    write(0,*) 'chksum_B_2d: jsd,jsc,jec,jed=',HI%jsdB,HI%jscB,HI%jecB,HI%jedB
-    call chksum_error(FATAL,'Error in chksum_B_2d '//trim(mesg))
-  endif
 
 
   sym = .false. ; if (present(symmetric)) sym = symmetric
@@ -429,26 +442,27 @@ subroutine chksum_uv_2d(mesg, arrayU, arrayV, HI, haloshift)
   real, dimension(HI%isd:,HI%jsd:), intent(in) :: arrayU, arrayV !< The arrays to be checksummed
   integer,                optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
+  integer :: ret, hshift
+
+  hshift = default_shift
+  if (present(haloshift)) hshift = haloshift
+  if (hshift<0) hshift=HI%iedB-HI%iecB
+
+  call chksum_u_2d(arrayU, 'u '//mesg, HI, hshift)
+  call chksum_v_2d(arrayV, 'v '//mesg, HI, hshift) 
 
   ret = 1
   if (transform_test_started()) then
-    call transform_compare(arrayU, arrayV, ret)
+    call transform_compare(arrayU(HI%iscB-hshift:HI%iecB+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift), &
+                           arrayV(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jscB-hshift:HI%jecB+hshift), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_uv_2d '//trim(mesg))
     else
       print*, 'TRANSFORM TEST PASSED'
     endif
-  endif
-
-
-  if (present(haloshift)) then
-    call chksum_u_2d(arrayU, 'u '//mesg, HI, haloshift)
-    call chksum_v_2d(arrayV, 'v '//mesg, HI, haloshift)
-  else
-    call chksum_u_2d(arrayU, 'u '//mesg, HI)
-    call chksum_v_2d(arrayV, 'v '//mesg, HI)
   endif
 
 end subroutine chksum_uv_2d
@@ -459,10 +473,17 @@ subroutine chksum_uv_3d(mesg, arrayU, arrayV, HI, haloshift)
   real, dimension(HI%isd:,HI%jsd:, :), intent(in) :: arrayU, arrayV !< The arrays to be checksummed
   integer,                   optional, intent(in) :: haloshift !< The width of halos to check (default 0)
 
-  integer :: ret
+  integer :: ret, hshift
+
+  hshift = default_shift
+  if (present(haloshift)) hshift = haloshift
+  if (hshift<0) hshift=HI%iedB-HI%iecB
 
   if (transform_test_started()) then
-    call transform_compare(arrayU, arrayV, ret)
+    call transform_compare(arrayU(HI%iscB-hshift:HI%iecB+hshift, &
+                                  HI%jsc-hshift:HI%jec+hshift, :), &
+                           arrayV(HI%isc-hshift:HI%iec+hshift, &
+                                  HI%jscB-hshift:HI%jecB+hshift, :), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_uv_3d '//trim(mesg))
@@ -471,13 +492,8 @@ subroutine chksum_uv_3d(mesg, arrayU, arrayV, HI, haloshift)
     endif
   endif
 
-  if (present(haloshift)) then
-    call chksum_u_3d(arrayU, 'u '//mesg, HI, haloshift)
-    call chksum_v_3d(arrayV, 'v '//mesg, HI, haloshift)
-  else
-    call chksum_u_3d(arrayU, 'u '//mesg, HI)
-    call chksum_v_3d(arrayV, 'v '//mesg, HI)
-  endif
+  call chksum_u_3d(arrayU, 'u '//mesg, HI, hshift)
+  call chksum_v_3d(arrayV, 'v '//mesg, HI, hshift)
 
 end subroutine chksum_uv_3d
 
@@ -647,7 +663,6 @@ subroutine chksum_v_2d(array, mesg, HI, haloshift)
       aMax = max(aMax, array(i,j))
       n = n + 1
     enddo ; enddo
-
     aMean = reproducing_sum(array(HI%isc:HI%iec,HI%jscB:HI%jecB))
     call sum_across_PEs(n)
     call min_across_PEs(aMin)
@@ -677,8 +692,23 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift, compare)
     do_compare = compare
   endif
 
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
+
+  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
+       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
+    write(0,*) 'chksum_h_3d: haloshift =',hshift
+    write(0,*) 'chksum_h_3d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
+    write(0,*) 'chksum_h_3d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
+    call chksum_error(FATAL,'Error in chksum_h_3d '//trim(mesg))
+  endif
+
   if (do_compare .and. transform_test_started()) then
-    call transform_compare(array, array, ret)
+    call transform_compare(array(HI%isc-hshift:HI%iec+hshift,  &
+                                 HI%jsc-hshift:HI%jec+hshift, :), &
+                           array(HI%isc-hshift:HI%iec+hshift,  &
+                                 HI%jsc-hshift:HI%jec+hshift, :), ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
                         'Transfrom test fail in chksum_h_3d '//trim(mesg))
@@ -697,18 +727,6 @@ subroutine chksum_h_3d(array, mesg, HI, haloshift, compare)
   if (calculateStatistics) call subStats(HI, array, mesg)
 
   if (.not.writeChksums) return
-
-  hshift=default_shift
-  if (present(haloshift)) hshift=haloshift
-  if (hshift<0) hshift=HI%ied-HI%iec
-
-  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
-       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
-    write(0,*) 'chksum_h_3d: haloshift =',hshift
-    write(0,*) 'chksum_h_3d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
-    write(0,*) 'chksum_h_3d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
-    call chksum_error(FATAL,'Error in chksum_h_3d '//trim(mesg))
-  endif
 
   bc0=subchk(array, HI, 0, 0)
 
@@ -784,7 +802,23 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift, compare)
     do_compare = compare
   endif
 
+  hshift=default_shift
+  if (present(haloshift)) hshift=haloshift
+  if (hshift<0) hshift=HI%ied-HI%iec
+
+  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
+       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
+    write(0,*) 'chksum_B_3d: haloshift =',hshift
+    write(0,*) 'chksum_B_3d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
+    write(0,*) 'chksum_B_3d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
+    call chksum_error(FATAL,'Error in chksum_B_3d '//trim(mesg))
+  endif
+
   if (do_compare .and. transform_test_started()) then
+    call transform_compare(array(HI%IscB-hshift:HI%IecB+hshift,  &
+                                 HI%JscB-hshift:HI%JecB+hshift, :), &
+                           array(HI%IscB-hshift:HI%IecB+hshift,  &
+                                 HI%JscB-hshift:HI%JecB+hshift, :), ret)
     call transform_compare(array, array, ret)
     if (ret /= 0) then
       call chksum_error(FATAL, &
@@ -804,18 +838,6 @@ subroutine chksum_B_3d(array, mesg, HI, haloshift, compare)
   if (calculateStatistics) call subStats(HI, array, mesg)
 
   if (.not.writeChksums) return
-
-  hshift=default_shift
-  if (present(haloshift)) hshift=haloshift
-  if (hshift<0) hshift=HI%ied-HI%iec
-
-  if ( HI%isc-hshift<HI%isd .or. HI%iec+hshift>HI%ied .or. &
-       HI%jsc-hshift<HI%jsd .or. HI%jec+hshift>HI%jed ) then
-    write(0,*) 'chksum_B_3d: haloshift =',hshift
-    write(0,*) 'chksum_B_3d: isd,isc,iec,ied=',HI%isd,HI%isc,HI%iec,HI%ied
-    write(0,*) 'chksum_B_3d: jsd,jsc,jec,jed=',HI%jsd,HI%jsc,HI%jec,HI%jed
-    call chksum_error(FATAL,'Error in chksum_B_3d '//trim(mesg))
-  endif
 
   bc0=subchk(array, HI, 0, 0)
 
